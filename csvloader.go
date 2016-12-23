@@ -3,11 +3,9 @@ package marketdata
 import (
 	"bufio"
 	"encoding/csv"
-	"fmt"
 	"io"
   "strings"
 	"os"
-	"strconv"
   "errors"
  )
 
@@ -23,48 +21,32 @@ const eventFolder = "event"
 func (csvLoader CsvLoader) LoadTickerData(ticker *Ticker) (TickerData, error) {
    var tickerData TickerData
    fileName := getTickerDataFileName(csvLoader.TickerFileNamePattern, ticker.Symbol, ticker.TimeFrame[0])
-   fmt.Printf("Filename is %v", fileName)
    filePath := csvLoader.RootDataPath + "\\" + tickerFolder + "\\" + fileName
-    fmt.Printf("File is %v", filePath)
 		f, err := os.Open(filePath)
     if err != nil {
-      return tickerData, err
+      return tickerData, errors.New("File Open Error: " + err.Error())
     }
-		// Create a new reader.
 		r := csv.NewReader(bufio.NewReader(f))
 
 		result, err := r.ReadAll()
 
 		dataLength := len(result)
 		arraySize := dataLength - 1
-    fmt.Printf("array size %v", arraySize)
-		tickerData.Date = make([]string, arraySize)
-		tickerData.Open = make([]float64, arraySize)
-		tickerData.High = make([]float64, arraySize)
-		tickerData.Low = make([]float64, arraySize)
-		tickerData.Close = make([]float64, arraySize)
-		tickerData.Volume = make([]int64, arraySize)
-    
-    headerColumns := []string{"date", "open", "high", "low", "close", "volume"}
-    headerMap, err := getColumnPositions(result[0], headerColumns)
+    headerColumns := []string{"id", "date", "open", "high", "low", "close", "volume"}
+    header, err := getColumnPositions(result[0], headerColumns)
     if err != nil {
       return tickerData, err
     }
 
+    tickerData.initialize(header, arraySize)
+
 		for i := 1; i < dataLength; i++ {
 			index := i - 1
-
-      tickerData.Date[index] = result[i][headerMap["date"]]
-			tickerData.Open[index], err = strconv.ParseFloat(result[i][headerMap["open"]], 64)
-			tickerData.High[index], err = strconv.ParseFloat(result[i][headerMap["high"]], 64)
-			tickerData.Low[index], err = strconv.ParseFloat(result[i][headerMap["low"]], 64)
-			tickerData.Close[index], err = strconv.ParseFloat(result[i][headerMap["close"]], 64)
-			tickerData.Volume[index], err = strconv.ParseInt(result[i][headerMap["volume"]], 10, 64)
+      err := tickerData.add(result[i], header, index)
 		  if err != nil {
 				return tickerData, err
 			}
 		}
-    fmt.Printf("Loaded!")
     return tickerData, nil
 	}
 
@@ -75,24 +57,25 @@ func (csvLoader CsvLoader) LoadTickerData(ticker *Ticker) (TickerData, error) {
    filePath := csvLoader.RootDataPath + "\\" + eventFolder + "\\" + fileName
 		f, err := os.Open(filePath)
     if err != nil {
+      return eventData, errors.New("File Open Error: " + err.Error())
+    }
+
+		r := csv.NewReader(bufio.NewReader(f))
+		result, err := r.ReadAll()	
+		dataLength := len(result)
+
+    headerColumns := []string{"date"}
+    headerMap, err := getColumnPositions(result[0], headerColumns)
+    if err != nil {
       return eventData, err
     }
 
-		// Create a new reader.
-		r := csv.NewReader(bufio.NewReader(f))
-		result, err := r.ReadAll()	
-
-		dataLength := len(result)
-
-    fmt.Printf("Length is %v", dataLength)
-
-		for i := 1; i < dataLength; i++ {
-      eventData.Date[result[i][0]] = true
+    for i := 1; i < dataLength; i++ {
+      eventData.Date[result[i][headerMap["date"]]] = true
 		  if err == io.EOF {
 				break
 			}
 		}
-    fmt.Printf("Loaded!")
     return eventData, nil
 	}
 

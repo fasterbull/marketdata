@@ -3,7 +3,7 @@ package marketdata
 import (
     "testing"
     "reflect"
-    "errors"
+    "strings"
 )
 
 func TestGetTickerDataFileName(t *testing.T) {
@@ -74,6 +74,7 @@ func TestLoadTickerData(t *testing.T) {
 
     result, _ := csvLoader.LoadTickerData(&ticker)
     var expectedValue TickerData
+    expectedValue.Id = []int32{0,1,2}
     expectedValue.Date = []string{"12/7/2016", "12/8/2016", "12/9/2016"}
     expectedValue.Open = []float64{134.58, 136.25, 138.39}
     expectedValue.High = []float64{136.17, 138.21, 138.82}
@@ -95,8 +96,8 @@ func TestLoadTickerDataHandlesErrors(t *testing.T) {
         timeFrame []string
         errorMsg string
     }{
-        {"fileDoesNotExist", "invalidTicker", []string{"daily"}, "open .\\testdata\\ticker\\invalidTicker-daily.csv: The system cannot find the file specified."},
-        {"tickerFileNoHeader", "noheader", []string{"daily"}, "Invalid CSV Header. Should contain: date,open,high,low,close,volume"},
+        {"fileDoesNotExist", "invalidTicker", []string{"daily"}, "File Open Error"},
+        {"tickerFileNoHeader", "noheader", []string{"daily"}, "Invalid CSV Header. Should contain: id,date,open,high,low,close,volume"},
     }
     csvLoader := CsvLoader{".\\testdata", "{ticker}-{timeframe}.csv", "{eventname}.csv"}
     var ticker Ticker
@@ -105,10 +106,35 @@ func TestLoadTickerDataHandlesErrors(t *testing.T) {
         ticker.Symbol = tc.symbol
         ticker.TimeFrame = tc.timeFrame
         _, err := csvLoader.LoadTickerData(&ticker)
-        var expectedError = errors.New(tc.errorMsg)
+        var expectedError = tc.errorMsg
        
-        if (err == nil || err.Error() != expectedError.Error()) {
+        if (err == nil || !strings.Contains(err.Error(), expectedError)) {
           t.Log("LoadTickerData test case ",tc.name, " did not handle invalid ticker file. Error was: ", err," but should be: ", expectedError)
+          t.Fail()
+        }
+     }
+    
+}
+
+func TestLoadEventDataHandlesErrors(t *testing.T) {
+    testCases := []struct{
+        name  string
+        eventName string
+        errorMsg string
+    }{
+        {"fileDoesNotExist", "invalidEvent", "File Open Error"},
+        {"eventFileNoHeader", "noheader", "Invalid CSV Header. Should contain: date"},
+    }
+    csvLoader := CsvLoader{".\\testdata", "{ticker}-{timeframe}.csv", "{eventname}.csv"}
+    var event Event
+
+     for _, tc := range testCases {
+        event.Name = tc.eventName
+        _, err := csvLoader.LoadEventData(&event)
+        var expectedError = tc.errorMsg
+       
+        if (err == nil || !strings.Contains(err.Error(), expectedError)) {
+          t.Log("LoadEventData test case ",tc.name, " did not handle invalid event file. Error was: ", err," but should be: ", expectedError)
           t.Fail()
         }
      }
