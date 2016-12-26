@@ -7,20 +7,27 @@ import (
   "strings"
 	"os"
   "errors"
+  "time"
  )
 
 type CsvLoader struct {
    RootDataPath string
    TickerFileNamePattern string
    EventFileNamePattern string
+   DateFormat string
+}
+
+type IndexRange struct {
+   begin int
+   end int
 }
 
 const tickerFolder = "ticker"
 const eventFolder = "event"
 
-func (csvLoader CsvLoader) LoadTickerData(ticker *Ticker) (TickerData, error) {
+func (csvLoader CsvLoader) LoadTickerData(symbol string, tickerConfig *TickerConfig) (TickerData, error) {
    var tickerData TickerData
-   fileName := getTickerDataFileName(csvLoader.TickerFileNamePattern, ticker.Symbol, ticker.TimeFrame[0])
+   fileName := getTickerDataFileName(csvLoader.TickerFileNamePattern, symbol, tickerConfig.TimeFrame)
    filePath := csvLoader.RootDataPath + "\\" + tickerFolder + "\\" + fileName
 		f, err := os.Open(filePath)
     if err != nil {
@@ -29,19 +36,17 @@ func (csvLoader CsvLoader) LoadTickerData(ticker *Ticker) (TickerData, error) {
 		r := csv.NewReader(bufio.NewReader(f))
 
 		result, err := r.ReadAll()
-
-		dataLength := len(result)
-		arraySize := dataLength - 1
-    headerColumns := []string{"id", "date", "open", "high", "low", "close", "volume"}
-    header, err := getColumnPositions(result[0], headerColumns)
+    header, err := getColumnPositions(result[0], tickerConfig.Fields)
     if err != nil {
       return tickerData, err
     }
 
-    tickerData.initialize(header, arraySize)
+    indexRange, _ := getIndexRange(result, header["date"], csvLoader.DateFormat, &tickerConfig.Range)
+    tickerData.initialize(header, ((indexRange.end - indexRange.begin) + 1))
 
-		for i := 1; i < dataLength; i++ {
-			index := i - 1
+    index := -1
+		for i := indexRange.begin; i < indexRange.end; i++ {
+			index++
       err := tickerData.add(result[i], header, index)
 		  if err != nil {
 				return tickerData, err
@@ -78,6 +83,34 @@ func (csvLoader CsvLoader) LoadTickerData(ticker *Ticker) (TickerData, error) {
 		}
     return eventData, nil
 	}
+  
+  func getIndexRange(records [][]string, dateColPos int, dateFormat string, dateRange *DateRange) (IndexRange, error) {
+    dataLength := len(records)
+    var indexRange IndexRange
+    var err error
+   
+    if dateRange == nil {
+      indexRange.begin = 1
+      indexRange.end = dataLength
+    } else {
+      startDate, _ := time.Parse(dateFormat, dateRange.StartDate)
+      endDate, _ := time.Parse(dateFormat, dateRange.EndDate)
+      for i := 1; i < dataLength; i++ {
+        date, _ := time.Parse(dateFormat, records[i][dateColPos])
+        if indexRange.begin == 0 && (date.Equal(startDate) || date.After(startDate)) {
+          indexRange.begin = i
+        } else if date.Equal(endDate) || date.After(endDate) {
+          indexRange.end = i
+          break
+        }
+      }
+      if &indexRange.end == nil && &indexRange.begin != nil {
+        indexRange.end = dataLength - 1
+      }
+    }
+
+    return indexRange, err
+  }
 
   func getTickerDataFileName(tickerFileNamePattern string, tickerSymbol string, timeFrame string) string {
     fileName := strings.Replace(tickerFileNamePattern, "{ticker}", tickerSymbol, -1)
@@ -92,14 +125,26 @@ func (csvLoader CsvLoader) LoadTickerData(ticker *Ticker) (TickerData, error) {
     return fileName
   }
 
-  func getColumnPositions(header []string, expectedValues []string) (map[string]int, error) {
+  func getColumnPositions(header []string, fields []string) (map[string]int, error) {
     arrayLength := len(header)
     headerMap := map[string]int{}
     for i := 0; i < arrayLength; i++ {
-      headerMap[strings.ToLower(header[i])] = i
+      if(len(fields) == 0 || inArray(header[i], fields)) {
+        headerMap[strings.ToLower(header[i])] = i
+      }
     }
     
-    return headerMap, validateCsvHeader(headerMap, expectedValues)
+    return headerMap, validateCsvHeader(headerMap, fields)
+  }
+
+  func inArray(value string, array []string) bool {
+     for _, item := range array {
+        if value == item {
+          return true
+          break
+        }
+     }
+     return false
   }
 
   func validateCsvHeader(header map[string]int, expectedValues []string) error {
