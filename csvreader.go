@@ -1,0 +1,196 @@
+package marketdata
+
+import (
+	"bufio"
+	"encoding/csv"
+	"errors"
+	"io"
+	"os"
+	"strings"
+	"time"
+)
+
+type CsvReader struct {
+	RootDataPath          string
+	TickerFileNamePattern string
+	EventFileNamePattern  string
+	DateFormat            string
+}
+
+type indexRange struct {
+	begin int
+	end   int
+}
+
+const tickerFolder = "ticker"
+const eventFolder = "event"
+
+func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *TickerConfig) (TickerData, error) {
+	var tickerData TickerData
+	fileName := getTickerDataFileName(csvReader.TickerFileNamePattern, symbol, tickerConfig.TimeFrame)
+	filePath := csvReader.RootDataPath + "\\" + tickerFolder + "\\" + fileName
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return tickerData, errors.New("File Open Error: " + err.Error())
+	}
+
+	r := csv.NewReader(bufio.NewReader(f))
+	result, err := r.ReadAll()
+	if err != nil {
+		return tickerData, err
+	}
+
+	header, err := getColumnPositions(result[0], tickerConfig.Filter)
+	if err != nil {
+		return tickerData, err
+	}
+
+	indexRange, err := getIndexRange(result, header, csvReader.DateFormat, &tickerConfig.Range)
+	if err != nil {
+		return tickerData, err
+	}
+
+	tickerData.initialize(header, (indexRange.end - indexRange.begin))
+
+	index := -1
+	for i := indexRange.begin; i < indexRange.end; i++ {
+		index++
+		err := tickerData.add(result[i], header, index)
+		if err != nil {
+			return tickerData, err
+		}
+	}
+
+	return tickerData, nil
+}
+
+func (csvReader CsvReader) ReadEventData(event *Event) (EventData, error) {
+	var eventData EventData
+	eventData.Date = make(map[string]bool)
+	fileName := getEventDataFileName(csvReader.EventFileNamePattern, event.Name)
+	filePath := csvReader.RootDataPath + "\\" + eventFolder + "\\" + fileName
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return eventData, errors.New("File Open Error: " + err.Error())
+	}
+
+	r := csv.NewReader(bufio.NewReader(f))
+	result, err := r.ReadAll()
+	if err != nil {
+		return eventData, err
+	}
+
+	dataLength := len(result)
+
+	header, err := getColumnPositions(result[0], []string{"date"})
+	if err != nil {
+		return eventData, err
+	}
+
+	for i := 1; i < dataLength; i++ {
+		eventData.Date[result[i][header["date"]]] = true
+		if err == io.EOF {
+			break
+		}
+	}
+
+	return eventData, nil
+}
+
+func getIndexRange(records [][]string, header map[string]int, dateFormat string, dateRange *DateRange) (indexRange, error) {
+	dataLength := len(records)
+	var indexRange indexRange
+	var err error
+
+	if dateRange.StartDate == "" {
+		indexRange.begin = 1
+		indexRange.end = dataLength
+	} else {
+		dateColumnIndex, exists := header["date"]
+		if !exists {
+			dateColumn, err := getColumnPositions(records[0], []string{"date"})
+			if err != nil {
+				return indexRange, err
+			}
+			dateColumnIndex = dateColumn["date"]
+		}
+		startDate, _ := time.Parse(dateFormat, dateRange.StartDate)
+		endDate, _ := time.Parse(dateFormat, dateRange.EndDate)
+		for i := 1; i < dataLength; i++ {
+			date, _ := time.Parse(dateFormat, records[i][dateColumnIndex])
+			if indexRange.begin == 0 && (date.Equal(startDate) || date.After(startDate)) {
+				indexRange.begin = i
+			} else if date.Equal(endDate) || date.After(endDate) {
+				indexRange.end = i
+				break
+			}
+		}
+		if &indexRange.end == nil && &indexRange.begin != nil {
+			indexRange.end = dataLength - 1
+		}
+	}
+
+	return indexRange, err
+}
+
+func getTickerDataFileName(tickerFileNamePattern string, tickerSymbol string, timeFrame string) string {
+	fileName := strings.Replace(tickerFileNamePattern, "{ticker}", tickerSymbol, -1)
+	fileName = strings.Replace(fileName, "{timeframe}", timeFrame, -1)
+
+	return fileName
+}
+
+func getEventDataFileName(eventFileNamePattern string, eventName string) string {
+	fileName := strings.Replace(eventFileNamePattern, "{eventname}", eventName, -1)
+
+	return fileName
+}
+
+func getColumnPositions(header []string, filter []string) (map[string]int, error) {
+	arrayLength := len(header)
+	headerMap := map[string]int{}
+
+	for i := 0; i < arrayLength; i++ {
+		if len(filter) == 0 || inArray(header[i], filter) {
+			headerMap[strings.ToLower(header[i])] = i
+		}
+	}
+
+	err := validateCsvHeader(headerMap, filter)
+	return headerMap, err
+}
+
+func inArray(value string, array []string) bool {
+	for _, item := range array {
+		if strings.ToLower(value) == strings.ToLower(item) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validateCsvHeader(header map[string]int, expectedValues []string) error {
+	if len(expectedValues) == 0 {
+		return nil
+	}
+
+	errMsg := ""
+	for _, value := range expectedValues {
+		_, exists := header[value]
+		if !exists {
+			if errMsg != "" {
+				errMsg = errMsg + ","
+			}
+			errMsg = errMsg + value
+		}
+	}
+
+	if errMsg != "" {
+		return errors.New("Invalid CSV Header. Missing header item(s): " + errMsg)
+	}
+
+	return nil
+}
