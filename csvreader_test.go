@@ -69,7 +69,7 @@ func TestReadTickerData(t *testing.T) {
 	csvReader := CsvReader{".\\testdata", "{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
 	symbol := "someticker"
 	var dateRange DateRange
-	tickerConfig := TickerConfig{"daily", nil, dateRange}
+	tickerConfig := ReadConfig{"daily", nil, dateRange}
 
 	result, _ := csvReader.ReadTickerData(symbol, &tickerConfig)
 	var expectedValue TickerData
@@ -91,11 +91,11 @@ func TestReadTickerData(t *testing.T) {
 func TestReadTickerDataHandlesErrors(t *testing.T) {
 	var dateRange DateRange
 	filter := []string{"id", "date", "open", "high", "low", "close", "volume"}
-	config := TickerConfig{"daily", filter, dateRange}
+	config := ReadConfig{"daily", filter, dateRange}
 	testCases := []struct {
 		name         string
 		symbol       string
-		tickerConfig TickerConfig
+		tickerConfig ReadConfig
 		errorMsg     string
 	}{
 		{"fileDoesNotExist", "invalidTicker", config, "File Open Error"},

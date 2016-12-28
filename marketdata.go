@@ -5,9 +5,13 @@ import (
 	"strings"
 )
 
-type DataReaderInterface interface {
-	ReadTickerData(symbol string, tickerConfig *TickerConfig) (TickerData, error)
+type DataReader interface {
+	ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error)
 	ReadEventData(event *Event) (EventData, error)
+}
+
+type DataWriter interface {
+	WriteTickerData(symbol string, tickerConfig *ReadConfig) error
 }
 
 type Event struct {
@@ -19,15 +23,26 @@ type DateRange struct {
 	EndDate   string
 }
 
-type TickerConfig struct {
+type ReadConfig struct {
 	TimeFrame string
 	Filter    []string
 	Range     DateRange
 }
 
-type Ticker struct {
+type TickerForRead struct {
 	Symbol string
-	Config []TickerConfig
+	Config []ReadConfig
+}
+
+type WriteConfig struct {
+	TimeFrame string
+	Append    bool
+}
+
+type TickerForWrite struct {
+	Symbol        string
+	BaseTimeFrame string
+	Config        []WriteConfig
 }
 
 type TickerData struct {
@@ -45,23 +60,25 @@ type EventData struct {
 	Date map[string]bool
 }
 
-func ReadTickerData(dataReader DataReaderInterface, ticker *Ticker) (map[string]TickerData, error) {
+func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]TickerData, error) {
 	data := make(map[string]TickerData)
 	var err error
-
 	for _, config := range ticker.Config {
 		data[config.TimeFrame], err = dataReader.ReadTickerData(ticker.Symbol, &config)
 		if err != nil {
 			break
 		}
 	}
-
 	return data, err
 }
 
-func ReadEventData(dataReader DataReaderInterface, event *Event) (EventData, error) {
-	eventData, err := dataReader.ReadEventData(event)
+func WriteTickerData(dataWriter DataWriter, ticker *TickerForWrite) error {
+	var err error
+	return err
+}
 
+func ReadEventData(dataReader DataReader, event *Event) (EventData, error) {
+	eventData, err := dataReader.ReadEventData(event)
 	return eventData, err
 }
 
@@ -93,7 +110,6 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 func (td *TickerData) add(data []string, header map[string]int, index int) error {
 	var err error
 	var int64 int64
-
 	for key, value := range header {
 		if key == "id" {
 			int64, err = strconv.ParseInt(data[value], 10, 32)
@@ -136,7 +152,5 @@ func (td *TickerData) add(data []string, header map[string]int, index int) error
 			td.HigherTfIds[key][index] = int32(int64)
 		}
 	}
-
 	return err
-
 }
