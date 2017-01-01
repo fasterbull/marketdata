@@ -50,7 +50,7 @@ func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfi
 	index := -1
 	for i := indexRange.begin; i < indexRange.end; i++ {
 		index++
-		err := tickerData.add(result[i], header, index)
+		err := tickerData.addFromRecords(result[i], header, index)
 		if err != nil {
 			return tickerData, err
 		}

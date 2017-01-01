@@ -1,8 +1,10 @@
 package marketdata
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type DataReader interface {
@@ -107,7 +109,51 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 	}
 }
 
-func (td *TickerData) add(data []string, header map[string]int, index int) error {
+func createHeader(td *TickerData, additionalFields []string) map[string]int {
+	header := make(map[string]int)
+	i := 0
+	if td.Id != nil {
+		header["id"] = i
+		i++
+	}
+	if td.Date != nil {
+		header["date"] = i
+		i++
+	}
+	if td.Open != nil {
+		header["open"] = i
+		i++
+	}
+	if td.High != nil {
+		header["high"] = i
+		i++
+	}
+	if td.Low != nil {
+		header["low"] = i
+		i++
+	}
+	if td.Close != nil {
+		header["close"] = i
+		i++
+	}
+	if td.Volume != nil {
+		header["volume"] = i
+		i++
+	}
+	if td.HigherTfIds != nil {
+		for key := range td.HigherTfIds {
+			header[key] = i
+			i++
+		}
+	}
+	for _, field := range additionalFields {
+		header[field] = i
+		i++
+	}
+	return header
+}
+
+func (td *TickerData) addFromRecords(data []string, header map[string]int, index int) error {
 	var err error
 	var int64 int64
 	for key, value := range header {
@@ -153,4 +199,171 @@ func (td *TickerData) add(data []string, header map[string]int, index int) error
 		}
 	}
 	return err
+}
+
+func (td *TickerData) addFromTickerData(inTd *TickerData, additionalFields []string, dateFormat string) {
+	header := createHeader(inTd, additionalFields)
+	td.initialize(header, len(inTd.Date))
+	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
+	if dataInDescOrder {
+		td.addTickerDataFromDescOrder(inTd)
+	} else {
+		td.addTickerDataFromAscOrder(inTd)
+	}
+}
+
+func (td *TickerData) addTickerDataFromAscOrder(inTd *TickerData) {
+	l := len(inTd.Date)
+	fmt.Printf("Length is: %v\n", l)
+	var i int
+	for i = 0; i < l; i++ {
+		td.addItem(inTd, i, i, i)
+	}
+}
+
+func (td *TickerData) tickerDataInDescOrder(dateFormat string) bool {
+	if len(td.Date) <= 1 {
+		return true
+	}
+	date1, _ := time.Parse(dateFormat, td.Date[0])
+	date2, _ := time.Parse(dateFormat, td.Date[1])
+	return date1.After(date2)
+}
+
+func (td *TickerData) addTickerDataFromDescOrder(inTd *TickerData) {
+	l := len(inTd.Date)
+	var i int
+	id := -1
+	for i = l - 1; i > -1; i-- {
+		id++
+		td.addItem(inTd, id, i, id)
+	}
+}
+
+func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) {
+	td.Id[index] = int32(id)
+	td.Date[index] = inTd.Date[inIndex]
+	td.Open[index] = inTd.Open[inIndex]
+	td.High[index] = inTd.High[inIndex]
+	td.Low[index] = inTd.Low[inIndex]
+	td.Close[index] = inTd.Close[inIndex]
+	td.Volume[index] = inTd.Volume[inIndex]
+}
+
+func (td *TickerData) addHigherTimeFrameIds(tdTf string, higherTf string, dateFormat string) {
+	if tdTf == "daily" {
+		if higherTf == "weekly" {
+			td.addWeeklyIdToDailyData(dateFormat)
+		} else if higherTf == "monthly" {
+			td.addMonthlyIdToDailyData(dateFormat)
+		}
+	}
+}
+
+func (td *TickerData) addWeeklyIdToDailyData(dateFormat string) {
+	_, ok := td.HigherTfIds["weekly_id"]
+	if !ok {
+		return
+	}
+	l := len(td.Date)
+	z := getIndexOfStartOfSecondWeek(td.Date, dateFormat)
+	if z == -1 {
+		return
+	}
+	var i int
+	for i = z - 1; i > -1; i-- {
+		td.HigherTfIds["weekly_id"][i] = -1
+	}
+	weeklyId := int32(0)
+	td.HigherTfIds["weekly_id"][z] = weeklyId
+	for i = z + 1; i < l; i++ {
+		curDate, _ := time.Parse(dateFormat, td.Date[i])
+		prevDate, _ := time.Parse(dateFormat, td.Date[i-1])
+		if prevDate.Weekday() > curDate.Weekday() {
+			weeklyId++
+		}
+		td.HigherTfIds["weekly_id"][i] = weeklyId
+	}
+}
+
+func (td *TickerData) addMonthlyIdToDailyData(dateFormat string) {
+	fmt.Printf("add monthly")
+	_, ok := td.HigherTfIds["monthly_id"]
+	if !ok {
+		return
+	}
+	l := len(td.Date)
+	z := getIndexOfStartOfSecondMonth(td.Date, dateFormat)
+	if z == -1 {
+		return
+	}
+	var i int
+	for i = z - 1; i > -1; i-- {
+		td.HigherTfIds["monthly_id"][i] = -1
+	}
+	monthlyId := int32(0)
+	td.HigherTfIds["monthly_id"][z] = monthlyId
+	for i = z + 1; i < l; i++ {
+		curDate, _ := time.Parse(dateFormat, td.Date[i])
+		prevDate, _ := time.Parse(dateFormat, td.Date[i-1])
+		if curDate.Month() != prevDate.Month() {
+			monthlyId++
+		}
+		td.HigherTfIds["monthly_id"][i] = monthlyId
+	}
+}
+
+func getIndexOfStartOfSecondWeek(date []string, dateFormat string) int {
+	l := len(date)
+	if l <= 1 {
+		return -1
+	}
+	for i := 1; i < l; i++ {
+		curDate, _ := time.Parse(dateFormat, date[i])
+		prevDate, _ := time.Parse(dateFormat, date[i-1])
+		if prevDate.Weekday() > curDate.Weekday() {
+			return i
+		}
+	}
+	return -1
+}
+
+func getIndexOfStartOfSecondMonth(date []string, dateFormat string) int {
+	l := len(date)
+	if l <= 1 {
+		return -1
+	}
+	for i := 1; i < l; i++ {
+		curDate, _ := time.Parse(dateFormat, date[i])
+		prevDate, _ := time.Parse(dateFormat, date[i-1])
+		if curDate.Month() != prevDate.Month() {
+			return i
+		}
+	}
+	return -1
+}
+
+// func createHeader(baseTimeFrame string, tfwConfig []WriteConfig) map[string]int {
+// 	header := getDefaultHeader()
+// 	i := len(header)
+// 	for _, config := range tfwConfig {
+// 		if config.TimeFrame != baseTimeFrame {
+// 			header[config.TimeFrame+"_id"] = i
+// 			i++
+// 		}
+// 	}
+// 	return header
+// }
+
+func getDefaultHeader() map[string]int {
+	header := make(map[string]int)
+	header["id"] = 0
+	header["date"] = 1
+	header["open"] = 2
+	header["high"] = 3
+	header["low"] = 4
+	header["close"] = 5
+	header["volume"] = 6
+
+	return header
 }
