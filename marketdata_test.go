@@ -36,6 +36,7 @@ func TestAddHigherTimeFrameIds(t *testing.T) {
 	}{
 		{"'Add weekly ids'", []string{"weekly"}, []string{"weekly_id", "id"}},
 		{"'Add monthly ids'", []string{"monthly"}, []string{"monthly_id", "id"}},
+		{"'Add weekly and monthly ids'", []string{"weekly", "monthly"}, []string{"weekly_id", "monthly_id", "id"}},
 	}
 	baseTimeFrame := "daily"
 	for _, tc := range testCases {
@@ -58,6 +59,39 @@ func TestAddHigherTimeFrameIds(t *testing.T) {
 			t.Log("TestAddHigherTimeFrameIds test case ", tc.name, " failed to add HigherTfIds. Result was: ", newTickerData, " but should be: ", expectedResult)
 			t.Fail()
 		}
+	}
+}
+
+func TestCreateFromLowerTimeFrame(t *testing.T) {
+	testCases := []struct {
+		name              string
+		targetTimeFrame   string
+		higherTfs         []string
+		addFields         []string
+		expectedResultKey string
+	}{
+		{"'Add weekly ids'", "weekly", []string{"weekly"}, []string{"weekly_id", "id"}, "weekly"},
+		{"'Add monthly ids'", "monthly", []string{"monthly"}, []string{"monthly_id", "id"}, "monthly"},
+		{"'Add weekly and monthly ids'", "weekly", []string{"weekly", "monthly"}, []string{"weekly_id", "monthly_id", "id"}, "weeklywithmonthly"},
+	}
+	baseTimeFrame := "daily"
+	for _, tc := range testCases {
+		inputTickerData, _ := getTestTickerData("asc")
+		dateFormat := "1/2/2006"
+		var newTickerData TickerData
+		newTickerData.addFromTickerData(&inputTickerData, tc.addFields, dateFormat)
+		for _, higherTf := range tc.higherTfs {
+			newTickerData.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
+		}
+
+		var newTfTickerData TickerData
+		newTfTickerData.createFromLowerTimeFrame(&newTickerData, tc.targetTimeFrame)
+		expectedResult, _ := getExpectedHigherTfData(tc.expectedResultKey)
+		if !reflect.DeepEqual(newTfTickerData, expectedResult) {
+			t.Log("TestCreateFromLowerTimeFrame test case ", tc.name, " failed to create TickerData from a lower time frame. Result was: ", newTfTickerData, " but should be: ", expectedResult)
+			t.Fail()
+		}
+
 	}
 }
 
@@ -105,5 +139,56 @@ func getAscTestTickerData() TickerData {
 		225.04, 225.53, 226.40, 225.77, 225.38, 225.71, 226.27, 226.27, 226.27, 226.27, 226.27}
 	tickerData.Volume = []int64{76572500, 69886700, 113291800, 79040500, 74840300, 67837800, 59877400, 110738100, 99714400, 88005800, 102016100,
 		110477500, 142501800, 124972600, 156420200, 90341100, 89838800, 67909000, 56219100, 36251400, 41054400, 41054400, 41054400, 41054400, 41054400}
+	return tickerData
+}
+
+func getExpectedHigherTfData(higherTf string) (TickerData, error) {
+	var err error
+	if higherTf == "weekly" {
+		return getExpectedWeeklyData(), err
+	} else if higherTf == "monthly" {
+		return getExpectedMonthlyData(), err
+	} else if higherTf == "weeklywithmonthly" {
+		return getExpectedWeeklyDataWithMonthlyIds(), err
+	}
+	var td TickerData
+	return td, errors.New("higherTf must be 'weekly' or 'monthly'")
+}
+
+func getExpectedWeeklyDataWithMonthlyIds() TickerData {
+	var tickerData TickerData
+	tickerData.Id = []int32{0, 1, 2, 3, 4}
+	tickerData.Date = []string{"11/28/2016", "12/5/2016", "12/12/2016", "12/19/2016", "12/27/2016"}
+	tickerData.Open = []float64{221.16, 220.65, 226.4, 225.25, 226.02}
+	tickerData.High = []float64{221.82, 226.53, 228.34, 226.57, 226.73}
+	tickerData.Low = []float64{219.15, 220.42, 224.67, 224.92, 226}
+	tickerData.Close = []float64{219.68, 226.51, 225.04, 225.71, 226.27}
+	tickerData.Volume = []int64{413631800, 426173500, 636388200, 340559400, 164217600}
+	tickerData.HigherTfIds = make(map[string][]int32)
+	tickerData.HigherTfIds["monthly_id"] = []int32{-1, 0, 0, 0, 0}
+	return tickerData
+}
+
+func getExpectedWeeklyData() TickerData {
+	var tickerData TickerData
+	tickerData.Id = []int32{0, 1, 2, 3, 4}
+	tickerData.Date = []string{"11/28/2016", "12/5/2016", "12/12/2016", "12/19/2016", "12/27/2016"}
+	tickerData.Open = []float64{221.16, 220.65, 226.4, 225.25, 226.02}
+	tickerData.High = []float64{221.82, 226.53, 228.34, 226.57, 226.73}
+	tickerData.Low = []float64{219.15, 220.42, 224.67, 224.92, 226}
+	tickerData.Close = []float64{219.68, 226.51, 225.04, 225.71, 226.27}
+	tickerData.Volume = []int64{413631800, 426173500, 636388200, 340559400, 164217600}
+	return tickerData
+}
+
+func getExpectedMonthlyData() TickerData {
+	var tickerData TickerData
+	tickerData.Id = []int32{0, 1}
+	tickerData.Date = []string{"11/28/2016", "12/1/2016"}
+	tickerData.Open = []float64{221.16, 220.73}
+	tickerData.High = []float64{221.82, 228.34}
+	tickerData.Low = []float64{220.17, 219.15}
+	tickerData.Close = []float64{220.38, 226.27}
+	tickerData.Volume = []int64{259751000, 1721219500}
 	return tickerData
 }

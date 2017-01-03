@@ -55,9 +55,7 @@ func (csvWriter *CsvWriter) WriteTickerData(symbol string, tickerData *TickerDat
 func printTickerData(writer *bufio.Writer, tickerData *TickerData, nextId int, newLine string) {
 	l := len(tickerData.Date)
 	var i int
-	fmt.Printf("Out of the Loop")
 	for i = nextId; i < l; i++ {
-		fmt.Printf("In the Loop %v", i)
 		printTickerDataItem(writer, tickerData, i, i, newLine)
 	}
 }

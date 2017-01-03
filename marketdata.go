@@ -1,7 +1,7 @@
 package marketdata
 
 import (
-	"fmt"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -109,7 +109,8 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 	}
 }
 
-func createHeader(td *TickerData, additionalFields []string) map[string]int {
+func createHeader(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
+	linkedHtfs := getLinkedHigherTimeFrames(targetTimeFrame)
 	header := make(map[string]int)
 	i := 0
 	if td.Id != nil {
@@ -142,8 +143,10 @@ func createHeader(td *TickerData, additionalFields []string) map[string]int {
 	}
 	if td.HigherTfIds != nil {
 		for key := range td.HigherTfIds {
-			header[key] = i
-			i++
+			if targetTimeFrame == "" || subStringInArray(key, linkedHtfs) {
+				header[key] = i
+				i++
+			}
 		}
 	}
 	for _, field := range additionalFields {
@@ -202,7 +205,7 @@ func (td *TickerData) addFromRecords(data []string, header map[string]int, index
 }
 
 func (td *TickerData) addFromTickerData(inTd *TickerData, additionalFields []string, dateFormat string) {
-	header := createHeader(inTd, additionalFields)
+	header := createHeader(inTd, additionalFields, "")
 	td.initialize(header, len(inTd.Date))
 	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
 	if dataInDescOrder {
@@ -212,9 +215,63 @@ func (td *TickerData) addFromTickerData(inTd *TickerData, additionalFields []str
 	}
 }
 
+func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string) error {
+	var err error
+	l := len(inTd.Id)
+	rtfIdField := requestedTimeFrame + "_id"
+	rTfIds, ok := inTd.HigherTfIds[rtfIdField]
+	if !ok {
+		return errors.New("Fields " + requestedTimeFrame + " does not exist in ticker data.")
+	}
+	header := createHeader(inTd, []string{}, requestedTimeFrame)
+	//Account for the Ids starting at -1
+	rTfLength := rTfIds[l-1] + 1
+	td.initialize(header, int(rTfLength))
+	var i int
+	rTfIndex := int32(0)
+	prevIdIndex := 0
+	date := inTd.Date[0]
+	open := inTd.Open[0]
+	high := inTd.High[0]
+	low := inTd.Low[0]
+	volume := inTd.Volume[0]
+	for i = 1; i < l; i++ {
+		if inTd.HigherTfIds[rtfIdField][i] > inTd.HigherTfIds[rtfIdField][prevIdIndex] {
+			td.Date[rTfIndex] = date
+			td.Open[rTfIndex] = open
+			td.High[rTfIndex] = high
+			td.Low[rTfIndex] = low
+			td.Close[rTfIndex] = inTd.Close[i-1]
+			td.Volume[rTfIndex] = volume
+			td.Id[rTfIndex] = inTd.HigherTfIds[rtfIdField][prevIdIndex] + 1
+			for key := range td.HigherTfIds {
+				td.HigherTfIds[key][rTfIndex] = inTd.HigherTfIds[key][prevIdIndex]
+			}
+			prevIdIndex = i
+			date = inTd.Date[i]
+			open = inTd.Open[i]
+			high = inTd.High[i]
+			low = inTd.Low[i]
+			volume = inTd.Volume[i]
+			rTfIndex++
+			if rTfIndex == rTfLength {
+				break
+			}
+		} else {
+			if inTd.High[i] > high {
+				high = inTd.High[i]
+			}
+			if inTd.Low[i] < low {
+				low = inTd.Low[i]
+			}
+			volume = volume + inTd.Volume[i]
+		}
+	}
+	return err
+}
+
 func (td *TickerData) addTickerDataFromAscOrder(inTd *TickerData) {
 	l := len(inTd.Date)
-	fmt.Printf("Length is: %v\n", l)
 	var i int
 	for i = 0; i < l; i++ {
 		td.addItem(inTd, i, i, i)
@@ -287,7 +344,6 @@ func (td *TickerData) addWeeklyIdToDailyData(dateFormat string) {
 }
 
 func (td *TickerData) addMonthlyIdToDailyData(dateFormat string) {
-	fmt.Printf("add monthly")
 	_, ok := td.HigherTfIds["monthly_id"]
 	if !ok {
 		return
@@ -310,6 +366,17 @@ func (td *TickerData) addMonthlyIdToDailyData(dateFormat string) {
 			monthlyId++
 		}
 		td.HigherTfIds["monthly_id"][i] = monthlyId
+	}
+}
+
+func getLinkedHigherTimeFrames(targetTimeFrame string) []string {
+	switch tf := targetTimeFrame; tf {
+	case "daily":
+		return []string{"weekly", "monthly"}
+	case "weekly":
+		return []string{"monthly"}
+	default:
+		return []string{}
 	}
 }
 
@@ -341,6 +408,24 @@ func getIndexOfStartOfSecondMonth(date []string, dateFormat string) int {
 		}
 	}
 	return -1
+}
+
+func inArray(value string, array []string) bool {
+	for _, item := range array {
+		if strings.ToLower(value) == strings.ToLower(item) {
+			return true
+		}
+	}
+	return false
+}
+
+func subStringInArray(value string, array []string) bool {
+	for _, item := range array {
+		if strings.Contains(strings.ToLower(value), strings.ToLower(item)) {
+			return true
+		}
+	}
+	return false
 }
 
 // func createHeader(baseTimeFrame string, tfwConfig []WriteConfig) map[string]int {

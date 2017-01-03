@@ -144,15 +144,6 @@ func getColumnPositions(header []string, filter []string) (map[string]int, error
 	return headerMap, err
 }
 
-func inArray(value string, array []string) bool {
-	for _, item := range array {
-		if strings.ToLower(value) == strings.ToLower(item) {
-			return true
-		}
-	}
-	return false
-}
-
 func validateCsvHeader(header map[string]int, expectedValues []string) error {
 	if len(expectedValues) == 0 {
 		return nil
