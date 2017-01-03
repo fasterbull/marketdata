@@ -109,57 +109,57 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 	}
 }
 
-func createHeader(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
+func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
 	linkedHtfs := getLinkedHigherTimeFrames(targetTimeFrame)
-	header := make(map[string]int)
+	field := make(map[string]int)
 	i := 0
 	if td.Id != nil {
-		header["id"] = i
+		field["id"] = i
 		i++
 	}
 	if td.Date != nil {
-		header["date"] = i
+		field["date"] = i
 		i++
 	}
 	if td.Open != nil {
-		header["open"] = i
+		field["open"] = i
 		i++
 	}
 	if td.High != nil {
-		header["high"] = i
+		field["high"] = i
 		i++
 	}
 	if td.Low != nil {
-		header["low"] = i
+		field["low"] = i
 		i++
 	}
 	if td.Close != nil {
-		header["close"] = i
+		field["close"] = i
 		i++
 	}
 	if td.Volume != nil {
-		header["volume"] = i
+		field["volume"] = i
 		i++
 	}
 	if td.HigherTfIds != nil {
 		for key := range td.HigherTfIds {
 			if targetTimeFrame == "" || subStringInArray(key, linkedHtfs) {
-				header[key] = i
+				field[key] = i
 				i++
 			}
 		}
 	}
-	for _, field := range additionalFields {
-		header[field] = i
+	for _, f := range additionalFields {
+		field[f] = i
 		i++
 	}
-	return header
+	return field
 }
 
-func (td *TickerData) addFromRecords(data []string, header map[string]int, index int) error {
+func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
 	var err error
 	var int64 int64
-	for key, value := range header {
+	for key, value := range fieldIndex {
 		if key == "id" {
 			int64, err = strconv.ParseInt(data[value], 10, 32)
 			if err != nil {
@@ -205,8 +205,8 @@ func (td *TickerData) addFromRecords(data []string, header map[string]int, index
 }
 
 func (td *TickerData) addFromTickerData(inTd *TickerData, additionalFields []string, dateFormat string) {
-	header := createHeader(inTd, additionalFields, "")
-	td.initialize(header, len(inTd.Date))
+	fields := getFields(inTd, additionalFields, "")
+	td.initialize(fields, len(inTd.Date))
 	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
 	if dataInDescOrder {
 		td.addTickerDataFromDescOrder(inTd)
@@ -223,10 +223,10 @@ func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFr
 	if !ok {
 		return errors.New("Fields " + requestedTimeFrame + " does not exist in ticker data.")
 	}
-	header := createHeader(inTd, []string{}, requestedTimeFrame)
+	fields := getFields(inTd, []string{}, requestedTimeFrame)
 	//Account for the Ids starting at -1
 	rTfLength := rTfIds[l-1] + 1
-	td.initialize(header, int(rTfLength))
+	td.initialize(fields, int(rTfLength))
 	var i int
 	rTfIndex := int32(0)
 	prevIdIndex := 0
@@ -427,18 +427,6 @@ func subStringInArray(value string, array []string) bool {
 	}
 	return false
 }
-
-// func createHeader(baseTimeFrame string, tfwConfig []WriteConfig) map[string]int {
-// 	header := getDefaultHeader()
-// 	i := len(header)
-// 	for _, config := range tfwConfig {
-// 		if config.TimeFrame != baseTimeFrame {
-// 			header[config.TimeFrame+"_id"] = i
-// 			i++
-// 		}
-// 	}
-// 	return header
-// }
 
 func getDefaultHeader() map[string]int {
 	header := make(map[string]int)

@@ -3,9 +3,12 @@
 *.a
 *.so
 
+*.DS_Store
+
 # Folders
 _obj
 _test
+*processed*
 
 # Architecture specific extensions/prefixes
 *.[568vq]

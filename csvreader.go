@@ -11,7 +11,8 @@ import (
 )
 
 type CsvReader struct {
-	RootDataPath          string
+	TickerDataPath        string
+	EventDataPath         string
 	TickerFileNamePattern string
 	EventFileNamePattern  string
 	DateFormat            string
@@ -22,13 +23,10 @@ type indexRange struct {
 	end   int
 }
 
-const tickerFolder = "ticker"
-const eventFolder = "event"
-
 func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error) {
 	var tickerData TickerData
 	fileName := getTickerDataFileName(csvReader.TickerFileNamePattern, symbol, tickerConfig.TimeFrame)
-	filePath := csvReader.RootDataPath + "\\" + tickerFolder + "\\" + fileName
+	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
 	f, err := os.Open(filePath)
 	if err != nil {
 		return tickerData, errors.New("File Open Error: " + err.Error())
@@ -62,7 +60,7 @@ func (csvReader CsvReader) ReadEventData(event *Event) (EventData, error) {
 	var eventData EventData
 	eventData.Date = make(map[string]bool)
 	fileName := getEventDataFileName(csvReader.EventFileNamePattern, event.Name)
-	filePath := csvReader.RootDataPath + "\\" + eventFolder + "\\" + fileName
+	filePath := csvReader.EventDataPath + string(os.PathSeparator) + fileName
 	f, err := os.Open(filePath)
 	if err != nil {
 		return eventData, errors.New("File Open Error: " + err.Error())
