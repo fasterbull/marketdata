@@ -6,48 +6,27 @@ import (
 	"testing"
 )
 
-func TestAddFromTickerData(t *testing.T) {
-	testCases := []struct {
-		name  string
-		order string
-	}{
-		{"'Input TickerData in Asc Order'", "asc"},
-		{"'Input TickerData in Desc Order'", "desc"},
-	}
-	for _, tc := range testCases {
-		inputTickerData, _ := getTestTickerData(tc.order)
-		expectedResult, _ := getTestTickerData("asc")
-		dateFormat := "1/2/2006"
-		var newTickerData TickerData
-		newTickerData.addFromTickerData(&inputTickerData, []string{"id"}, dateFormat)
-		expectedResult.Id = []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}
-		if !reflect.DeepEqual(newTickerData, expectedResult) {
-			t.Log("TestAddFromTickerData test case ", tc.name, " failed to add TickerData. Result was: ", newTickerData, " but should be: ", expectedResult)
-			t.Fail()
-		}
-	}
-}
 
-func TestAddHigherTimeFrameIds(t *testing.T) {
+func TestProcessRawTickerData(t *testing.T) {
 	testCases := []struct {
 		name      string
 		higherTfs []string
 		addFields []string
+		inputSortOrder string
 	}{
-		{"'Add weekly ids'", []string{"weekly"}, []string{"weekly_id", "id"}},
-		{"'Add monthly ids'", []string{"monthly"}, []string{"monthly_id", "id"}},
-		{"'Add weekly and monthly ids'", []string{"weekly", "monthly"}, []string{"weekly_id", "monthly_id", "id"}},
+		{"'Add weekly ids'", []string{"weekly"}, []string{"weekly_id", "id"}, "desc"}, 
+		{"'Add monthly ids'", []string{"monthly"}, []string{"monthly_id", "id"}, "asc"}, 
+		{"'Add weekly and monthly ids'", []string{"weekly", "monthly"}, []string{"weekly_id", "monthly_id", "id"}, "desc"},
 	}
 	baseTimeFrame := "daily"
 	for _, tc := range testCases {
-		inputTickerData, _ := getTestTickerData("asc")
+		inputTickerData, _ := getTestTickerData(tc.inputSortOrder)
 		expectedResult, _ := getTestTickerData("asc")
 		expectedResult.HigherTfIds = make(map[string][]int32)
 		dateFormat := "1/2/2006"
-		var newTickerData TickerData
-		newTickerData.addFromTickerData(&inputTickerData, tc.addFields, dateFormat)
+		
+		processedTd := processRawTickerData(&inputTickerData, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
 		for _, higherTf := range tc.higherTfs {
-			newTickerData.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
 			if higherTf == "weekly" {
 				expectedResult.HigherTfIds["weekly_id"] = []int32{-1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4}
 			} else if higherTf == "monthly" {
@@ -55,8 +34,8 @@ func TestAddHigherTimeFrameIds(t *testing.T) {
 			}
 		}
 		expectedResult.Id = []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}
-		if !reflect.DeepEqual(newTickerData, expectedResult) {
-			t.Log("TestAddHigherTimeFrameIds test case ", tc.name, " failed to add HigherTfIds. Result was: ", newTickerData, " but should be: ", expectedResult)
+		if !reflect.DeepEqual(processedTd, expectedResult) {
+			t.Log("TestAddHigherTimeFrameIds test case ", tc.name, " failed to add HigherTfIds. Result was: ", processedTd, " but should be: ", expectedResult)
 			t.Fail()
 		}
 	}
@@ -78,20 +57,14 @@ func TestCreateFromLowerTimeFrame(t *testing.T) {
 	for _, tc := range testCases {
 		inputTickerData, _ := getTestTickerData("asc")
 		dateFormat := "1/2/2006"
-		var newTickerData TickerData
-		newTickerData.addFromTickerData(&inputTickerData, tc.addFields, dateFormat)
-		for _, higherTf := range tc.higherTfs {
-			newTickerData.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
-		}
-
+		processedTd := processRawTickerData(&inputTickerData, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
 		var newTfTickerData TickerData
-		newTfTickerData.createFromLowerTimeFrame(&newTickerData, tc.targetTimeFrame)
+		newTfTickerData.createFromLowerTimeFrame(&processedTd, tc.targetTimeFrame)
 		expectedResult, _ := getExpectedHigherTfData(tc.expectedResultKey)
 		if !reflect.DeepEqual(newTfTickerData, expectedResult) {
 			t.Log("TestCreateFromLowerTimeFrame test case ", tc.name, " failed to create TickerData from a lower time frame. Result was: ", newTfTickerData, " but should be: ", expectedResult)
 			t.Fail()
 		}
-
 	}
 }
 

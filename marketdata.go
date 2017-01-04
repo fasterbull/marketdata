@@ -204,7 +204,8 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 	return err
 }
 
-func (td *TickerData) addFromTickerData(inTd *TickerData, additionalFields []string, dateFormat string) {
+func processRawTickerData(inTd *TickerData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
+	var td TickerData
 	fields := getFields(inTd, additionalFields, "")
 	td.initialize(fields, len(inTd.Date))
 	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
@@ -213,6 +214,10 @@ func (td *TickerData) addFromTickerData(inTd *TickerData, additionalFields []str
 	} else {
 		td.addTickerDataFromAscOrder(inTd)
 	}
+	for _, higherTf := range higherTfs {
+		td.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
+	}
+	return td
 }
 
 func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string) error {
