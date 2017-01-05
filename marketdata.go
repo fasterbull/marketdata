@@ -205,15 +205,8 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 }
 
 func processRawTickerData(inTd *TickerData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
-	var td TickerData
 	fields := getFields(inTd, additionalFields, "")
-	td.initialize(fields, len(inTd.Date))
-	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
-	if dataInDescOrder {
-		td.addTickerDataFromDescOrder(inTd)
-	} else {
-		td.addTickerDataFromAscOrder(inTd)
-	}
+	td := addFieldsAndSortTickerData(inTd, fields, dateFormat)
 	for _, higherTf := range higherTfs {
 		td.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
 	}
@@ -275,12 +268,37 @@ func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFr
 	return err
 }
 
-func (td *TickerData) addTickerDataFromAscOrder(inTd *TickerData) {
+func addFieldsAndSortTickerData(inTd *TickerData, fields map[string]int, dateFormat string) TickerData {
+	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
+	if dataInDescOrder {
+		return createTickerDataFromDescOrder(inTd, fields)
+	} else {
+		return createTickerDataFromAscOrder(inTd, fields)
+	}
+}
+
+func  createTickerDataFromAscOrder(inTd *TickerData, fields map[string]int) TickerData {
+	var td TickerData
+	td.initialize(fields, len(inTd.Date))
 	l := len(inTd.Date)
 	var i int
 	for i = 0; i < l; i++ {
 		td.addItem(inTd, i, i, i)
 	}
+	return td
+}
+
+func createTickerDataFromDescOrder(inTd *TickerData, fields map[string]int) TickerData {
+	var td TickerData
+	td.initialize(fields, len(inTd.Date))
+	l := len(inTd.Date)
+	var i int
+	id := -1
+	for i = l - 1; i > -1; i-- {
+		id++
+		td.addItem(inTd, id, i, id)
+	}
+	return td
 }
 
 func (td *TickerData) tickerDataInDescOrder(dateFormat string) bool {
@@ -290,16 +308,6 @@ func (td *TickerData) tickerDataInDescOrder(dateFormat string) bool {
 	date1, _ := time.Parse(dateFormat, td.Date[0])
 	date2, _ := time.Parse(dateFormat, td.Date[1])
 	return date1.After(date2)
-}
-
-func (td *TickerData) addTickerDataFromDescOrder(inTd *TickerData) {
-	l := len(inTd.Date)
-	var i int
-	id := -1
-	for i = l - 1; i > -1; i-- {
-		id++
-		td.addItem(inTd, id, i, id)
-	}
 }
 
 func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) {
