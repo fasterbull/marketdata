@@ -268,6 +268,29 @@ func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFr
 	return err
 }
 
+func getLastCompletedTimeFrameId(td *TickerData, timeFrame string, dateFormat string) (int32, error) {
+	var err error
+	var lastTimeFrameId int32
+	l := len(td.Id)
+	tfIdField := timeFrame + "_id"
+	_, ok := td.HigherTfIds[tfIdField]
+	if !ok {
+		return lastTimeFrameId, errors.New("Field " + timeFrame + " does not exist in ticker data.")
+	}
+	lastDate, _ := time.Parse(dateFormat, td.Date[l-1])
+	if timeFrame == "weekly" {
+		if lastDate.Weekday() == 6 {
+			return td.HigherTfIds[tfIdField][l-1], err
+		}
+	} else if timeFrame == "monthly" {
+		if (lastDate.Month() != lastDate.AddDate(0, 0, 1).Month()) ||
+			(lastDate.Weekday() == 6 && lastDate.Month() != lastDate.AddDate(0, 0, 3).Month()) {
+			return td.HigherTfIds[tfIdField][l-1], err
+		}
+	}
+	return td.HigherTfIds[tfIdField][l-1] - 1, err
+}
+
 func addFieldsAndSortTickerData(inTd *TickerData, fields map[string]int, dateFormat string) TickerData {
 	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
 	if dataInDescOrder {
@@ -277,7 +300,7 @@ func addFieldsAndSortTickerData(inTd *TickerData, fields map[string]int, dateFor
 	}
 }
 
-func  createTickerDataFromAscOrder(inTd *TickerData, fields map[string]int) TickerData {
+func createTickerDataFromAscOrder(inTd *TickerData, fields map[string]int) TickerData {
 	var td TickerData
 	td.initialize(fields, len(inTd.Date))
 	l := len(inTd.Date)
