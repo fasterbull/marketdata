@@ -45,9 +45,7 @@ func (csvWriter *CsvWriter) WriteTickerData(symbol string, tickerData *TickerDat
 	if !tickerConfig.Append {
 		printHeader(writer, newLine)
 	}
-
 	printTickerData(writer, tickerData, nextId, newLine)
-
 	writer.Flush()
 	return err
 }
@@ -77,15 +75,12 @@ func lineCounter(r io.Reader) (int, error) {
 	buf := make([]byte, 32*1024)
 	count := 0
 	lineSep := []byte{'\n'}
-
 	for {
 		c, err := r.Read(buf)
 		count += bytes.Count(buf[:c], lineSep)
-
 		switch {
 		case err == io.EOF:
 			return count, nil
-
 		case err != nil:
 			return count, err
 		}

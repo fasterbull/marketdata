@@ -229,7 +229,6 @@ func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFr
 	td.initialize(fields, int(rTfLength))
 	rTfIndex := int32(0)
 	prevIdIndex := int32(0)
-
 	date := inTd.Date[0]
 	open := inTd.Open[0]
 	high := inTd.High[0]
@@ -237,20 +236,18 @@ func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFr
 	volume := inTd.Volume[0]
 	for i := int32(1); i < l; i++ {
 		if i == lastCompletedTfIndex {
-			td.addItemFromLowerTimeFrame(inTd, rtfIdField, i, rTfIndex, date, open, high, low, volume)
+			if inTd.High[i] > high {
+				high = inTd.High[i]
+			}
+			if inTd.Low[i] < low {
+				low = inTd.Low[i]
+			}
+			volume = volume + inTd.Volume[i]
+			td.addItemFromLowerTimeFrame(inTd, rtfIdField, i, rTfIndex, date, open, high, low, inTd.Close[i], volume)
 			break
 		}
 		if inTd.HigherTfIds[rtfIdField][i] > inTd.HigherTfIds[rtfIdField][prevIdIndex] {
-			td.Date[rTfIndex] = date
-			td.Open[rTfIndex] = open
-			td.High[rTfIndex] = high
-			td.Low[rTfIndex] = low
-			td.Close[rTfIndex] = inTd.Close[i-1]
-			td.Volume[rTfIndex] = volume
-			td.Id[rTfIndex] = inTd.HigherTfIds[rtfIdField][prevIdIndex] + 1
-			for key := range td.HigherTfIds {
-				td.HigherTfIds[key][rTfIndex] = inTd.HigherTfIds[key][prevIdIndex]
-			}
+			td.addItemFromLowerTimeFrame(inTd, rtfIdField, prevIdIndex, rTfIndex, date, open, high, low, inTd.Close[i-1], volume)
 			prevIdIndex = i
 			date = inTd.Date[i]
 			open = inTd.Open[i]
@@ -355,22 +352,16 @@ func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) 
 	td.Volume[index] = inTd.Volume[inIndex]
 }
 
-func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date string, open float64, high float64, low float64, volume int64) {
-	if inTd.High[inIndex] > high {
-		high = inTd.High[inIndex]
-	}
-	if inTd.Low[inIndex] < low {
-		low = inTd.Low[inIndex]
-	}
+func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date string, open float64, high float64, low float64, close float64, volume int64) {
 	td.Date[index] = date
 	td.Open[index] = open
 	td.High[index] = high
 	td.Low[index] = low
-	td.Close[index] = inTd.Close[inIndex]
-	td.Volume[index] = volume + inTd.Volume[inIndex]
+	td.Close[index] = close
+	td.Volume[index] = volume
 	td.Id[index] = inTd.HigherTfIds[requestedTfField][inIndex] + 1
 	for key := range td.HigherTfIds {
-		td.HigherTfIds[key][index] = inTd.HigherTfIds[key][index]
+		td.HigherTfIds[key][index] = inTd.HigherTfIds[key][inIndex]
 	}
 }
 

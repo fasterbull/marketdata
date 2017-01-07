@@ -23,7 +23,6 @@ func TestProcessRawTickerData(t *testing.T) {
 		expectedResult, _ := getTestTickerData("asc", 0)
 		expectedResult.HigherTfIds = make(map[string][]int32)
 		dateFormat := "1/2/2006"
-
 		processedTd := processRawTickerData(&inputTickerData, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
 		for _, higherTf := range tc.higherTfs {
 			if higherTf == "weekly" {

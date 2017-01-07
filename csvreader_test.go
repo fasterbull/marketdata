@@ -1,10 +1,10 @@
 package marketdata
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
-	"os"
 )
 
 func TestGetTickerDataFileName(t *testing.T) {
@@ -50,7 +50,7 @@ func TestGetColumnPositions(t *testing.T) {
 func TestReadEventData(t *testing.T) {
 	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
 		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		                    "{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
+		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
 	var event Event
 	event.Name = "testevent"
 
@@ -71,7 +71,7 @@ func TestReadEventData(t *testing.T) {
 func TestReadTickerData(t *testing.T) {
 	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
 		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		 "{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
+		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
 	symbol := "someticker"
 	var dateRange DateRange
 	tickerConfig := ReadConfig{"daily", nil, dateRange}
@@ -108,7 +108,7 @@ func TestReadTickerDataHandlesErrors(t *testing.T) {
 	}
 	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
 		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		 "{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
+		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
 
 	for _, tc := range testCases {
 		_, err := csvReader.ReadTickerData(tc.symbol, &tc.tickerConfig)
@@ -119,7 +119,6 @@ func TestReadTickerDataHandlesErrors(t *testing.T) {
 			t.Fail()
 		}
 	}
-
 }
 
 func TestReadEventDataHandlesErrors(t *testing.T) {
@@ -133,7 +132,7 @@ func TestReadEventDataHandlesErrors(t *testing.T) {
 	}
 	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
 		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		 "{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
+		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
 	var event Event
 	for _, tc := range testCases {
 		event.Name = tc.eventName
