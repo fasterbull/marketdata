@@ -213,27 +213,33 @@ func processRawTickerData(inTd *TickerData, baseTimeFrame string, additionalFiel
 	return td
 }
 
-func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string) error {
+func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string, dateFormat string) error {
 	var err error
-	l := len(inTd.Id)
+	l := int32(len(inTd.Id))
 	rtfIdField := requestedTimeFrame + "_id"
-	rTfIds, ok := inTd.HigherTfIds[rtfIdField]
+	_, ok := inTd.HigherTfIds[rtfIdField]
 	if !ok {
 		return errors.New("Fields " + requestedTimeFrame + " does not exist in ticker data.")
 	}
 	fields := getFields(inTd, []string{}, requestedTimeFrame)
+	var lastCompletedTfIndex int32
+	lastCompletedTfIndex, err = getLastCompletedTimeFrameIndex(inTd, requestedTimeFrame, dateFormat)
 	//Account for the Ids starting at -1
-	rTfLength := rTfIds[l-1] + 1
+	rTfLength := inTd.HigherTfIds[rtfIdField][lastCompletedTfIndex] + 2
 	td.initialize(fields, int(rTfLength))
-	var i int
 	rTfIndex := int32(0)
-	prevIdIndex := 0
+	prevIdIndex := int32(0)
+
 	date := inTd.Date[0]
 	open := inTd.Open[0]
 	high := inTd.High[0]
 	low := inTd.Low[0]
 	volume := inTd.Volume[0]
-	for i = 1; i < l; i++ {
+	for i := int32(1); i < l; i++ {
+		if i == lastCompletedTfIndex {
+			td.addItemFromLowerTimeFrame(inTd, rtfIdField, i, rTfIndex, date, open, high, low, volume)
+			break
+		}
 		if inTd.HigherTfIds[rtfIdField][i] > inTd.HigherTfIds[rtfIdField][prevIdIndex] {
 			td.Date[rTfIndex] = date
 			td.Open[rTfIndex] = open
@@ -268,10 +274,10 @@ func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFr
 	return err
 }
 
-func getLastCompletedTimeFrameId(td *TickerData, timeFrame string, dateFormat string) (int32, error) {
+func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string, dateFormat string) (int32, error) {
 	var err error
 	var lastTimeFrameId int32
-	l := len(td.Id)
+	l := int32(len(td.Id))
 	tfIdField := timeFrame + "_id"
 	_, ok := td.HigherTfIds[tfIdField]
 	if !ok {
@@ -279,25 +285,31 @@ func getLastCompletedTimeFrameId(td *TickerData, timeFrame string, dateFormat st
 	}
 	lastDate, _ := time.Parse(dateFormat, td.Date[l-1])
 	if timeFrame == "weekly" {
-		if lastDate.Weekday() == 6 {
-			return td.HigherTfIds[tfIdField][l-1], err
+		if lastDate.Weekday().String() == "Friday" {
+			return int32(l - 1), err
 		}
 	} else if timeFrame == "monthly" {
 		if (lastDate.Month() != lastDate.AddDate(0, 0, 1).Month()) ||
-			(lastDate.Weekday() == 6 && lastDate.Month() != lastDate.AddDate(0, 0, 3).Month()) {
-			return td.HigherTfIds[tfIdField][l-1], err
+			(lastDate.Weekday().String() == "Friday" && lastDate.Month() != lastDate.AddDate(0, 0, 3).Month()) {
+			return int32(l - 1), err
 		}
 	}
-	return td.HigherTfIds[tfIdField][l-1] - 1, err
+	var index int32
+	for i := l - 2; i >= 0; i-- {
+		if td.HigherTfIds[tfIdField][i] != td.HigherTfIds[tfIdField][i+1] {
+			index = i
+			break
+		}
+	}
+	return index, err
 }
 
 func addFieldsAndSortTickerData(inTd *TickerData, fields map[string]int, dateFormat string) TickerData {
 	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
 	if dataInDescOrder {
 		return createTickerDataFromDescOrder(inTd, fields)
-	} else {
-		return createTickerDataFromAscOrder(inTd, fields)
 	}
+	return createTickerDataFromAscOrder(inTd, fields)
 }
 
 func createTickerDataFromAscOrder(inTd *TickerData, fields map[string]int) TickerData {
@@ -341,6 +353,25 @@ func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) 
 	td.Low[index] = inTd.Low[inIndex]
 	td.Close[index] = inTd.Close[inIndex]
 	td.Volume[index] = inTd.Volume[inIndex]
+}
+
+func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date string, open float64, high float64, low float64, volume int64) {
+	if inTd.High[inIndex] > high {
+		high = inTd.High[inIndex]
+	}
+	if inTd.Low[inIndex] < low {
+		low = inTd.Low[inIndex]
+	}
+	td.Date[index] = date
+	td.Open[index] = open
+	td.High[index] = high
+	td.Low[index] = low
+	td.Close[index] = inTd.Close[inIndex]
+	td.Volume[index] = volume + inTd.Volume[inIndex]
+	td.Id[index] = inTd.HigherTfIds[requestedTfField][inIndex] + 1
+	for key := range td.HigherTfIds {
+		td.HigherTfIds[key][index] = inTd.HigherTfIds[key][index]
+	}
 }
 
 func (td *TickerData) addHigherTimeFrameIds(tdTf string, higherTf string, dateFormat string) {
