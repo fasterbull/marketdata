@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
+	"strings"
 )
 
 type CsvWriter struct {
@@ -42,28 +44,94 @@ func (csvWriter *CsvWriter) WriteTickerData(symbol string, tickerData *TickerDat
 	}
 	defer fwr.Close()
 	writer := bufio.NewWriter(fwr)
+	sortedHigherTfIds := getSortedHigherTimeFrameIds(tickerData.HigherTfIds)
 	if !tickerConfig.Append {
-		printHeader(writer, newLine)
+		printHeader(writer, tickerData, sortedHigherTfIds, newLine)
 	}
-	printTickerData(writer, tickerData, nextId, newLine)
+	printTickerData(writer, tickerData, sortedHigherTfIds, nextId, newLine)
 	writer.Flush()
 	return err
 }
 
-func printTickerData(writer *bufio.Writer, tickerData *TickerData, nextId int, newLine string) {
+func printTickerData(writer *bufio.Writer, tickerData *TickerData, sortedHigherTfIds []string, nextId int, newLine string) {
 	l := len(tickerData.Date)
 	var i int
 	for i = nextId; i < l; i++ {
-		printTickerDataItem(writer, tickerData, i, i, newLine)
+		printTickerDataItem(writer, tickerData, sortedHigherTfIds, i, newLine)
 	}
 }
 
-func printTickerDataItem(writer *bufio.Writer, tickerData *TickerData, id int, index int, newLine string) {
-	fmt.Fprintf(writer, "%v,%v,%v,%v,%v,%v,%v%v", id, tickerData.Date[index], tickerData.Open[index], tickerData.High[index], tickerData.Low[index], tickerData.Close[index], tickerData.Volume[index], newLine)
+func printTickerDataItem(writer *bufio.Writer, td *TickerData, sortedHigherTfIds []string, index int, newLine string) {
+	record := ""
+	if td.Id != nil {
+		record = record + fmt.Sprintf("%v", td.Id[index]) + ","
+	}
+	if td.HigherTfIds != nil {
+		for _, value := range sortedHigherTfIds {
+			record = record + fmt.Sprintf("%v", td.HigherTfIds[value][index]) + ","
+		}
+	}
+	if td.Date != nil {
+		record = record + td.Date[index] + ","
+	}
+	if td.Open != nil {
+		record = record + fmt.Sprintf("%v", td.Open[index]) + ","
+	}
+	if td.High != nil {
+		record = record + fmt.Sprintf("%v", td.High[index]) + ","
+	}
+	if td.Low != nil {
+		record = record + fmt.Sprintf("%v", td.Low[index]) + ","
+	}
+	if td.Close != nil {
+		record = record + fmt.Sprintf("%v", td.Close[index]) + ","
+	}
+	if td.Volume != nil {
+		record = record + fmt.Sprintf("%v", td.Volume[index]) + ","
+	}
+	fmt.Fprintf(writer, "%v%v", strings.TrimSuffix(record, ","), newLine)
 }
 
-func printHeader(writer *bufio.Writer, newLine string) {
-	fmt.Fprintf(writer, "id,open,high,low,close,volume%v", newLine)
+func printHeader(writer *bufio.Writer, td *TickerData, sortedHigherTfIds []string, newLine string) {
+	header := ""
+	if td.Id != nil {
+		header = header + "id,"
+	}
+	if td.HigherTfIds != nil {
+		for _, value := range sortedHigherTfIds {
+			header = header + value + ","
+		}
+	}
+	if td.Date != nil {
+		header = header + "date,"
+	}
+	if td.Open != nil {
+		header = header + "open,"
+	}
+	if td.High != nil {
+		header = header + "high,"
+	}
+	if td.Low != nil {
+		header = header + "low,"
+	}
+	if td.Close != nil {
+		header = header + "close,"
+	}
+	if td.Volume != nil {
+		header = header + "volume,"
+	}
+	fmt.Fprintf(writer, "%v%v", strings.TrimSuffix(header, ","), newLine)
+}
+
+func getSortedHigherTimeFrameIds(higherTfIds map[string][]int32) []string {
+	sortedHigherTfIds := make([]string, len(higherTfIds))
+	i := 0
+	for key := range higherTfIds {
+		sortedHigherTfIds[i] = key
+		i++
+	}
+	sort.Strings(sortedHigherTfIds)
+	return sortedHigherTfIds
 }
 
 func getNextId(r io.Reader) (int, error) {
