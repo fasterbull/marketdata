@@ -60,8 +60,7 @@ func TestCreateFromLowerTimeFrame(t *testing.T) {
 		inputTickerData, _ := getTestTickerData("asc", tc.dataSubtractAmount)
 		dateFormat := "1/2/2006"
 		processedTd := processRawTickerData(&inputTickerData, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
-		var newTfTickerData TickerData
-		newTfTickerData.createFromLowerTimeFrame(&processedTd, tc.targetTimeFrame, dateFormat)
+		newTfTickerData, _ := createFromLowerTimeFrame(&processedTd, tc.targetTimeFrame, dateFormat)
 		expectedResult, _ := getExpectedHigherTfData(tc.expectedResultKey)
 		if !reflect.DeepEqual(newTfTickerData, expectedResult) {
 			t.Log("TestCreateFromLowerTimeFrame test case ", tc.name, " failed to create TickerData from a lower time frame. Result was: ", newTfTickerData, " but should be: ", expectedResult)

@@ -213,13 +213,14 @@ func processRawTickerData(inTd *TickerData, baseTimeFrame string, additionalFiel
 	return td
 }
 
-func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string, dateFormat string) error {
+func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string, dateFormat string) (TickerData, error) {
 	var err error
+	var td TickerData
 	l := int32(len(inTd.Id))
 	rtfIdField := requestedTimeFrame + "_id"
 	_, ok := inTd.HigherTfIds[rtfIdField]
 	if !ok {
-		return errors.New("Fields " + requestedTimeFrame + " does not exist in ticker data.")
+		return td, errors.New("Fields " + requestedTimeFrame + " does not exist in ticker data.")
 	}
 	fields := getFields(inTd, []string{}, requestedTimeFrame)
 	var lastCompletedTfIndex int32
@@ -268,7 +269,7 @@ func (td *TickerData) createFromLowerTimeFrame(inTd *TickerData, requestedTimeFr
 			volume = volume + inTd.Volume[i]
 		}
 	}
-	return err
+	return td, err
 }
 
 func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string, dateFormat string) (int32, error) {
