@@ -344,23 +344,37 @@ func (td *TickerData) tickerDataInDescOrder(dateFormat string) bool {
 }
 
 func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) {
-	td.Id[index] = int32(id)
-	td.Date[index] = inTd.Date[inIndex]
-	td.Open[index] = inTd.Open[inIndex]
-	td.High[index] = inTd.High[inIndex]
-	td.Low[index] = inTd.Low[inIndex]
-	td.Close[index] = inTd.Close[inIndex]
-	td.Volume[index] = inTd.Volume[inIndex]
+	if td.Id != nil {
+		td.Id[index] = int32(id)
+	}
+	if td.Date != nil {
+		td.Date[index] = inTd.Date[inIndex]
+	}
+	if td.Open != nil {
+		td.Open[index] = inTd.Open[inIndex]
+	}
+	if td.High != nil {
+		td.High[index] = inTd.High[inIndex]
+	}
+	if td.Low != nil {
+		td.Low[index] = inTd.Low[inIndex]
+	}
+	if td.Close != nil {
+		td.Close[index] = inTd.Close[inIndex]
+	}
+	if td.Volume != nil {
+		td.Volume[index] = inTd.Volume[inIndex]
+	}
 }
 
 func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date string, open float64, high float64, low float64, close float64, volume int64) {
+	td.Id[index] = inTd.HigherTfIds[requestedTfField][inIndex] + 1
 	td.Date[index] = date
 	td.Open[index] = open
 	td.High[index] = high
 	td.Low[index] = low
 	td.Close[index] = close
 	td.Volume[index] = volume
-	td.Id[index] = inTd.HigherTfIds[requestedTfField][inIndex] + 1
 	for key := range td.HigherTfIds {
 		td.HigherTfIds[key][index] = inTd.HigherTfIds[key][inIndex]
 	}
