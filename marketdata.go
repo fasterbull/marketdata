@@ -13,7 +13,7 @@ type DataReader interface {
 }
 
 type DataWriter interface {
-	WriteTickerData(symbol string, tickerConfig *ReadConfig) error
+	WriteTickerData(symbol string, tickerConfig *WriteConfig) error
 }
 
 type Event struct {
@@ -74,8 +74,14 @@ func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]Ti
 	return data, err
 }
 
-func WriteTickerData(dataWriter DataWriter, ticker *TickerForWrite) error {
+func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite) error {
 	var err error
+	for _, config := range ticker.Config {
+		err = dataWriter.WriteTickerData(ticker.Symbol, &config)
+		if err != nil {
+			break
+		}
+	}
 	return err
 }
 
@@ -204,7 +210,7 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 	return err
 }
 
-func processRawTickerData(inTd *TickerData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
+func ProcessRawTickerData(inTd *TickerData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
 	fields := getFields(inTd, additionalFields, "")
 	td := addFieldsAndSortTickerData(inTd, fields, dateFormat)
 	for _, higherTf := range higherTfs {
