@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestWriteTickerData(t *testing.T) {
+func Test_writeTickerData(t *testing.T) {
 	outputPath := "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker" + string(os.PathSeparator) + "processed" + string(os.PathSeparator)
 	csvWriter := CsvWriter{outputPath, "{ticker}-{timeframe}.csv", "1/2/2006"}
 	symbol := "testticker"

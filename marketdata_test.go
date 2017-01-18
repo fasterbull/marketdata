@@ -1,10 +1,34 @@
 package marketdata
 
 import (
+	"io/ioutil"
+	"os"
 	"errors"
 	"reflect"
 	"testing"
 )
+
+func TestWriteTickerData(t *testing.T) {
+    outputPath := "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker" + string(os.PathSeparator) + "processed" + string(os.PathSeparator)
+	csvWriter := CsvWriter{outputPath, "{ticker}-{timeframe}.csv", "1/2/2006"}
+	tickerForWrite := TickerForWrite{"testticker", "daily", []WriteConfig{{"daily", false}, {"weekly", false}, {"monthly", false}} }
+	processedTd := getExpectedDailyDataWithWeeklyAndMonthlyIds()
+	var err error
+	var result []byte
+	resultingFile := outputPath + tickerForWrite.Symbol + "-" + tickerForWrite.BaseTimeFrame + ".csv"
+	err = WriteTickerData(csvWriter, &processedTd, &tickerForWrite)
+	result, err = ioutil.ReadFile(resultingFile)
+	if err != nil {
+		t.Log("Failed write TickerData. Error is: ", err)
+	}
+	expectedValue := getExpectedCsvDailyDataWithMonthlyWeeklyIds()
+	if string(result) != expectedValue {
+		t.Log("Failed to write TickerData. Result was: ", string(result), " but should be: ", expectedValue)
+		t.Fail()
+	}
+	os.Remove(resultingFile)
+}
+
 
 func TestProcessRawTickerData(t *testing.T) {
 	testCases := []struct {

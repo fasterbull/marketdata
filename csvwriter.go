@@ -17,7 +17,7 @@ type CsvWriter struct {
 	DateFormat            string
 }
 
-func (csvWriter *CsvWriter) WriteTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error {
+func (csvWriter CsvWriter) WriteTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error {
 	newLine := "\n"
 	fileName := getTickerDataFileName(csvWriter.TickerFileNamePattern, symbol, tickerConfig.TimeFrame)
 	filePath := csvWriter.OutputPath + fileName

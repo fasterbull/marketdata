@@ -13,7 +13,7 @@ type DataReader interface {
 }
 
 type DataWriter interface {
-	WriteTickerData(symbol string, tickerConfig *WriteConfig) error
+	WriteTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error
 }
 
 type Event struct {
@@ -77,7 +77,7 @@ func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]Ti
 func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite) error {
 	var err error
 	for _, config := range ticker.Config {
-		err = dataWriter.WriteTickerData(ticker.Symbol, &config)
+		err = dataWriter.WriteTickerData(ticker.Symbol, inTickerData, &config)
 		if err != nil {
 			break
 		}
