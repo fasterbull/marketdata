@@ -58,6 +58,16 @@ type TickerData struct {
 	HigherTfIds map[string][]int32
 }
 
+type TickerSplitData struct {
+	Date	[]string
+	Split   []string
+}
+
+type TickerDividendData struct {
+	Date	[]string
+	Amount   []float32
+}
+
 type EventData struct {
 	Date map[string]bool
 }
