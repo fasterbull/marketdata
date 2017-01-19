@@ -58,6 +58,21 @@ func getExpectedCsvDailyDataWithMonthlyWeeklyIds() string {
 			"24,1,4,1/2/2017,226.02,226.73,226,226.27,41054400\n"
 }
 
+func getExpectedCsvWeeklyDataWithMonthlyIds() string {
+	return "id,monthly_id,date,open,high,low,close,volume\n" +
+			"0,-1,11/28/2016,221.16,221.82,219.15,219.68,413631800\n" +
+			"1,0,12/5/2016,220.65,226.53,220.42,226.51,426173500\n" +
+			"2,0,12/12/2016,226.4,228.34,224.67,225.04,636388200\n" +
+			"3,0,12/19/2016,225.25,226.57,224.92,225.71,340559400\n" +
+			"4,0,12/27/2016,226.02,226.73,226,226.27,164217600\n"
+}
+
+func getExpectedCsvMonthlyData() string {
+	return "id,date,open,high,low,close,volume\n" +
+			"0,11/28/2016,221.16,221.82,220.17,220.38,259751000\n" +
+			"1,12/1/2016,220.73,228.34,219.15,226.27,1721219500\n"
+}
+
 func getExpectedCsvDailyData() string {
 	return "id,date,open,high,low,close,volume\n" +
 			"0,11/28/2016,221.16,221.48,220.36,220.48,76572500\n" +

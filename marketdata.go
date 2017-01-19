@@ -74,10 +74,17 @@ func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]Ti
 	return data, err
 }
 
-func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite) error {
+func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite, dateFormat string) error {
 	var err error
+	var tdToWrite *TickerData
 	for _, config := range ticker.Config {
-		err = dataWriter.WriteTickerData(ticker.Symbol, inTickerData, &config)
+		if (config.TimeFrame == ticker.BaseTimeFrame) {
+			tdToWrite = inTickerData;
+		} else {
+			higherTfTd, _ := createFromLowerTimeFrame(inTickerData, config.TimeFrame, dateFormat)
+			tdToWrite = &higherTfTd
+		}
+		err = dataWriter.WriteTickerData(ticker.Symbol, tdToWrite, &config)
 		if err != nil {
 			break
 		}

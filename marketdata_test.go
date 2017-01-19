@@ -9,24 +9,44 @@ import (
 )
 
 func TestWriteTickerData(t *testing.T) {
+	dateFormat := "1/2/2006"
     outputPath := "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker" + string(os.PathSeparator) + "processed" + string(os.PathSeparator)
-	csvWriter := CsvWriter{outputPath, "{ticker}-{timeframe}.csv", "1/2/2006"}
+	csvWriter := CsvWriter{outputPath, "{ticker}-{timeframe}.csv", dateFormat}
 	tickerForWrite := TickerForWrite{"testticker", "daily", []WriteConfig{{"daily", false}, {"weekly", false}, {"monthly", false}} }
 	processedTd := getExpectedDailyDataWithWeeklyAndMonthlyIds()
 	var err error
 	var result []byte
-	resultingFile := outputPath + tickerForWrite.Symbol + "-" + tickerForWrite.BaseTimeFrame + ".csv"
-	err = WriteTickerData(csvWriter, &processedTd, &tickerForWrite)
-	result, err = ioutil.ReadFile(resultingFile)
-	if err != nil {
+	err = WriteTickerData(csvWriter, &processedTd, &tickerForWrite, dateFormat)
+    if err != nil {
 		t.Log("Failed write TickerData. Error is: ", err)
 	}
-	expectedValue := getExpectedCsvDailyDataWithMonthlyWeeklyIds()
-	if string(result) != expectedValue {
-		t.Log("Failed to write TickerData. Result was: ", string(result), " but should be: ", expectedValue)
-		t.Fail()
+
+	for _, config := range tickerForWrite.Config {
+		resultingFile := outputPath + tickerForWrite.Symbol + "-" + config.TimeFrame + ".csv"
+		result, err = ioutil.ReadFile(resultingFile)
+		if err != nil {
+			t.Log("Failed write TickerData. Error is: ", err)
+		}
+		expectedValue := getExpectedCsvData(tickerForWrite.BaseTimeFrame, config.TimeFrame)
+		if string(result) != expectedValue {
+			t.Log("Failed to write TickerData. Result was: ", string(result), " but should be: ", expectedValue)
+			t.Fail()
+		}
+		os.Remove(resultingFile)
 	}
-	os.Remove(resultingFile)
+}
+
+func getExpectedCsvData(baseTimeFrame string, targetTimeFrame string) string {
+	if (baseTimeFrame == "daily") {
+		if (targetTimeFrame == "weekly") {
+			return getExpectedCsvWeeklyDataWithMonthlyIds()
+		} else if (targetTimeFrame == "monthly") {
+			return getExpectedCsvMonthlyData()
+		} else {
+			return getExpectedCsvDailyDataWithMonthlyWeeklyIds()
+		}
+	}
+	return ""
 }
 
 
