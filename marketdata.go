@@ -10,6 +10,7 @@ import (
 type DataReader interface {
 	ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error)
 	ReadEventData(event *Event) (EventData, error)
+	ReadDivedendData(symbol string) (TickerDividendData, error)
 }
 
 type DataWriter interface {
@@ -130,6 +131,11 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 			td.HigherTfIds[key] = make([]int32, size)
 		}
 	}
+}
+
+func (tdd *TickerDividendData) initialize(size int) {
+	tdd.Date = make([]string, size)
+	tdd.Amount = make([]float32, size)	
 }
 
 func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {

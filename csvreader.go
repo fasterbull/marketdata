@@ -15,12 +15,32 @@ type CsvReader struct {
 	EventDataPath         string
 	TickerFileNamePattern string
 	EventFileNamePattern  string
+	DividendFileNamePattern string
+	SplitFileNamePattern  string
 	DateFormat            string
 }
 
 type indexRange struct {
 	begin int
 	end   int
+}
+
+func (csvReader CsvReader) ReadDivedendData(symbol string, source string) (TickerDividendData, error) {
+	var tickerDd TickerDividendData
+	fileName := getFileName(csvReader.DividendFileNamePattern, "{ticker}", symbol)
+	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
+	f, err := os.Open(filePath)
+	if err != nil {
+		return tickerDd, errors.New("File Open Error: " + err.Error())
+	}
+	r := csv.NewReader(bufio.NewReader(f))
+	result, err := r.ReadAll()
+	if err != nil {
+		return tickerDd, err
+	}
+	size := getCountOfMatchingItems(result, "DIVIDEND", 0)
+	tickerDd.initialize(size)
+	return tickerDd, nil
 }
 
 func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error) {
@@ -83,7 +103,16 @@ func (csvReader CsvReader) ReadEventData(event *Event) (EventData, error) {
 	}
 	return eventData, nil
 }
-
+func getCountOfMatchingItems(records [][]string, pattern string, index int) int {
+	count := 0
+	dataLength := len(records)
+	for i := 1; i < dataLength; i++ {
+	   if strings.Contains(records[i][index], pattern) {
+		   count++
+	   }
+	}
+	return count
+}
 func getIndexRange(records [][]string, header map[string]int, dateFormat string, dateRange *DateRange) (indexRange, error) {
 	dataLength := len(records)
 	var indexRange indexRange
@@ -127,6 +156,11 @@ func getTickerDataFileName(tickerFileNamePattern string, tickerSymbol string, ti
 
 func getEventDataFileName(eventFileNamePattern string, eventName string) string {
 	fileName := strings.Replace(eventFileNamePattern, "{eventname}", eventName, -1)
+	return fileName
+}
+
+func getFileName(fileNamePattern string, replacePattern string, replaceValue string) string {
+	fileName := strings.Replace(fileNamePattern, replacePattern, replaceValue, -1)
 	return fileName
 }
 

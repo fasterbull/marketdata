@@ -48,12 +48,12 @@ func TestGetColumnPositions(t *testing.T) {
 }
 
 func TestReadEventData(t *testing.T) {
-	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
-		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
+	var csvReader CsvReader
+	csvReader.EventDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
+	csvReader.EventFileNamePattern = "{eventname}.csv"
+	csvReader.DateFormat  = "1/2/2006"
 	var event Event
 	event.Name = "testevent"
-
 	result, _ := csvReader.ReadEventData(&event)
 	expectedValue := map[string]bool{
 		"5/26/2000": true,
@@ -69,13 +69,13 @@ func TestReadEventData(t *testing.T) {
 }
 
 func TestReadTickerData(t *testing.T) {
-	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
-		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.TickerFileNamePattern = "{ticker}-{timeframe}.csv"
+	csvReader.DateFormat  = "1/2/2006"
 	symbol := "someticker"
 	var dateRange DateRange
 	tickerConfig := ReadConfig{"daily", nil, dateRange}
-
 	result, _ := csvReader.ReadTickerData(symbol, &tickerConfig)
 	var expectedValue TickerData
 	expectedValue.Id = []int32{0, 1, 2}
@@ -106,10 +106,10 @@ func TestReadTickerDataHandlesErrors(t *testing.T) {
 		{"fileDoesNotExist", "invalidTicker", config, "File Open Error"},
 		{"tickerFileNoHeader", "noheader", config, "Invalid CSV Header. Missing header item(s): id,date,open,high,low,close,volume"},
 	}
-	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
-		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
-
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.TickerFileNamePattern = "{ticker}-{timeframe}.csv"
+	csvReader.DateFormat  = "1/2/2006"
 	for _, tc := range testCases {
 		_, err := csvReader.ReadTickerData(tc.symbol, &tc.tickerConfig)
 		var expectedError = tc.errorMsg
@@ -130,9 +130,10 @@ func TestReadEventDataHandlesErrors(t *testing.T) {
 		{"fileDoesNotExist", "invalidEvent", "File Open Error"},
 		{"eventFileNoHeader", "noheader", "Invalid CSV Header. Missing header item(s): date"},
 	}
-	csvReader := CsvReader{"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker",
-		"." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event",
-		"{ticker}-{timeframe}.csv", "{eventname}.csv", "1/2/2006"}
+	var csvReader CsvReader
+	csvReader.EventDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
+	csvReader.EventFileNamePattern = "{eventname}.csv"
+	csvReader.DateFormat  = "1/2/2006"
 	var event Event
 	for _, tc := range testCases {
 		event.Name = tc.eventName
@@ -144,5 +145,4 @@ func TestReadEventDataHandlesErrors(t *testing.T) {
 			t.Fail()
 		}
 	}
-
 }
