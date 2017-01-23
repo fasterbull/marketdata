@@ -20,23 +20,24 @@ type CsvWriter struct {
 func (csvWriter CsvWriter) WriteTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error {
 	newLine := "\n"
 	fileName := getTickerDataFileName(csvWriter.TickerFileNamePattern, symbol, tickerConfig.TimeFrame)
-	filePath := csvWriter.OutputPath + fileName
+	filePath := csvWriter.OutputPath
 	var fwr, fr *os.File
 	var err error
 	var nextId int
 	if tickerConfig.Append {
-		fr, err = os.Open(filePath)
+		fr, err = os.Open(filePath + fileName)
 		if err != nil {
 			return errors.New("File Write Error: " + err.Error())
 		}
 		nextId, err = getNextId(fr)
 		fr.Close()
-		fwr, err = os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0600)
+		fwr, err = os.OpenFile(filePath + fileName, os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			return errors.New("File Write Error: " + err.Error())
 		}
 	} else {
-		fwr, err = os.Create(filePath)
+		os.MkdirAll(filePath, os.ModePerm)
+		fwr, err = os.Create(filePath + fileName)
 		if err != nil {
 			return errors.New("File Write Error: " + err.Error())
 		}
