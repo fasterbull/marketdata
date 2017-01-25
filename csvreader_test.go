@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"fmt"
 )
 
 func TestGetTickerDataFileName(t *testing.T) {
@@ -91,6 +92,22 @@ func TestReadTickerData(t *testing.T) {
 		t.Fail()
 	}
 
+}
+
+func TestReadDividendData(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.DividendFileNamePattern = "{ticker}-splitdividend.csv"
+	csvReader.DateFormat  = "1/2/2006"
+	symbol := "someticker"
+	result, err := csvReader.ReadDividendData(symbol, "yahoo")
+	if err != nil {
+		fmt.Printf("Failure %v", result)
+	    t.Log(err)
+		t.Fail()
+	}
+	
+	
 }
 
 func TestReadTickerDataHandlesErrors(t *testing.T) {

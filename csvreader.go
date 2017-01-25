@@ -25,7 +25,7 @@ type indexRange struct {
 	end   int
 }
 
-func (csvReader CsvReader) ReadDivedendData(symbol string, source string) (TickerDividendData, error) {
+func (csvReader CsvReader) ReadDividendData(symbol string, source string) (TickerDividendData, error) {
 	var tickerDd TickerDividendData
 	fileName := getFileName(csvReader.DividendFileNamePattern, "{ticker}", symbol)
 	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
@@ -33,13 +33,31 @@ func (csvReader CsvReader) ReadDivedendData(symbol string, source string) (Ticke
 	if err != nil {
 		return tickerDd, errors.New("File Open Error: " + err.Error())
 	}
-	r := csv.NewReader(bufio.NewReader(f))
-	result, err := r.ReadAll()
-	if err != nil {
-		return tickerDd, err
+	r := bufio.NewReader(f)
+    line, err := r.ReadString(10)
+	records := [][]string{} 
+	var splitLine []string
+    for err != io.EOF {           
+        line, err = r.ReadString(10)
+		if strings.Contains(line, "DIVIDEND") {
+			line = strings.Replace(line, "\n", "", -1)
+			splitLine = strings.Split(line, ",")
+			records = append(records, []string{splitLine[1], splitLine[2]})
+		}
+    }
+	header := make(map[string]int)
+	header["date"] = 0
+	header["amount"] = 1
+	size := len(records)
+	tickerDd.initialize(len(records))
+	index := -1
+	for i := 0; i < size; i++ {
+		index++
+		err := tickerDd.addFromRecords(records[i], header, index)
+		if err != nil {
+			return tickerDd, err
+		}
 	}
-	size := getCountOfMatchingItems(result, "DIVIDEND", 0)
-	tickerDd.initialize(size)
 	return tickerDd, nil
 }
 

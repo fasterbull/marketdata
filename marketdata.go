@@ -10,7 +10,7 @@ import (
 type DataReader interface {
 	ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error)
 	ReadEventData(event *Event) (EventData, error)
-	ReadDivedendData(symbol string) (TickerDividendData, error)
+	ReadDividendData(symbol string, source string) (TickerDividendData, error)
 }
 
 type DataWriter interface {
@@ -66,7 +66,7 @@ type TickerSplitData struct {
 
 type TickerDividendData struct {
 	Date	[]string
-	Amount   []float32
+	Amount   []float64
 }
 
 type EventData struct {
@@ -135,7 +135,7 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 
 func (tdd *TickerDividendData) initialize(size int) {
 	tdd.Date = make([]string, size)
-	tdd.Amount = make([]float32, size)	
+	tdd.Amount = make([]float64, size)	
 }
 
 func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
@@ -228,6 +228,21 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 				return err
 			}
 			td.HigherTfIds[key][index] = int32(int64)
+		}
+	}
+	return err
+}
+
+func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
+	var err error
+	for key, value := range fieldIndex {
+	   if key == "date" {
+			tdd.Date[index] = data[value]
+		} else if key == "amount" {
+			tdd.Amount[index], err = strconv.ParseFloat(data[value], 64)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return err
