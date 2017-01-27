@@ -34,12 +34,33 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
 		return tickerDd, errors.New("File Open Error: " + err.Error())
 	}
 	r := bufio.NewReader(f)
-    line, err := r.ReadString(10)
+	err = addFromYahooData(&tickerDd, "DIVIDEND", r)
+	return tickerDd, err
+}
+
+func (csvReader CsvReader) ReadSplitData(symbol string, source string) (TickerSplitData, error) {
+	var tickerSd TickerSplitData
+	fileName := getFileName(csvReader.SplitFileNamePattern, "{ticker}", symbol)
+	if fileName == "" {
+		return tickerSd, errors.New("File for ticker: '" + symbol + "' does not exist.")
+	}
+	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
+	f, err := os.Open(filePath)
+	if err != nil {
+		return tickerSd, errors.New("File Open Error: " + err.Error())
+	}
+	r := bufio.NewReader(f)
+	err = addFromYahooData(&tickerSd, "SPLIT", r)
+	return tickerSd, err
+}
+
+func addFromYahooData(data Data, dataType string, r *bufio.Reader) error {
+	line, err := r.ReadString(10)
 	records := [][]string{} 
 	var splitLine []string
     for err != io.EOF {           
         line, err = r.ReadString(10)
-		if strings.Contains(line, "DIVIDEND") {
+		if strings.Contains(line, dataType) {
 			line = strings.Replace(line, "\n", "", -1)
 			splitLine = strings.Split(line, ",")
 			records = append(records, []string{splitLine[1], splitLine[2]})
@@ -47,18 +68,18 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
     }
 	header := make(map[string]int)
 	header["date"] = 0
-	header["amount"] = 1
+	header["value"] = 1
 	size := len(records)
-	tickerDd.initialize(len(records))
+	data.initialize(len(records))
 	index := -1
 	for i := 0; i < size; i++ {
 		index++
-		err := tickerDd.addFromRecords(records[i], header, index)
+		err := data.addFromRecords(records[i], header, index)
 		if err != nil {
-			return tickerDd, err
+			return err
 		}
 	}
-	return tickerDd, nil
+	return nil
 }
 
 func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error) {

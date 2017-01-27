@@ -106,8 +106,24 @@ func TestReadDividendData(t *testing.T) {
 	    t.Log(err)
 		t.Fail()
 	}
-	
-	
+	fmt.Printf("Result is %v", result)
+}
+
+func TestReadSplitData(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.SplitFileNamePattern = "{ticker}-splitdividend.csv"
+	csvReader.DateFormat  = "1/2/2006"
+	symbol := "someticker"
+	result, err := csvReader.ReadSplitData(symbol, "yahoo")
+	var expectedValue TickerSplitData
+	expectedValue.Date = []string{"2005060"}
+	expectedValue.Split = []string{"2:1"}
+	if !reflect.DeepEqual(result, expectedValue) || err != nil {
+		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Returned error is:", err)
+		t.Fail()
+	}
 }
 
 func TestReadTickerDataHandlesErrors(t *testing.T) {

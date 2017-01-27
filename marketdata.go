@@ -13,6 +13,11 @@ type DataReader interface {
 	ReadDividendData(symbol string, source string) (TickerDividendData, error)
 }
 
+type Data interface {
+	addFromRecords(data []string, fieldIndex map[string]int, index int) error
+	initialize(size int)
+}
+
 type DataWriter interface {
 	WriteTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error
 }
@@ -138,6 +143,11 @@ func (tdd *TickerDividendData) initialize(size int) {
 	tdd.Amount = make([]float64, size)	
 }
 
+func (tsd *TickerSplitData) initialize(size int) {
+	tsd.Date = make([]string, size)
+	tsd.Split = make([]string, size)	
+}
+
 func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
 	linkedHtfs := getLinkedHigherTimeFrames(targetTimeFrame)
 	field := make(map[string]int)
@@ -237,12 +247,24 @@ func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[stri
 	var err error
 	for key, value := range fieldIndex {
 	   if key == "date" {
-			tdd.Date[index] = data[value]
-		} else if key == "amount" {
-			tdd.Amount[index], err = strconv.ParseFloat(data[value], 64)
+			tdd.Date[index] = strings.TrimSpace(data[value])
+		} else if key == "value" {
+			tdd.Amount[index], err = strconv.ParseFloat(strings.TrimSpace(data[value]), 64)
 			if err != nil {
 				return err
 			}
+		}
+	}
+	return err
+}
+
+func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
+	var err error
+	for key, value := range fieldIndex {
+	   if key == "date" {
+			tsd.Date[index] = strings.TrimSpace(data[value])
+		} else if key == "value" {
+			tsd.Split[index] = strings.TrimSpace(data[value])
 		}
 	}
 	return err
