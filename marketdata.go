@@ -66,7 +66,8 @@ type TickerData struct {
 
 type TickerSplitData struct {
 	Date	[]string
-	Split   []string
+	BeforeSplitQty  []int
+	AfterSplitQty   []int
 }
 
 type TickerDividendData struct {
@@ -145,7 +146,8 @@ func (tdd *TickerDividendData) initialize(size int) {
 
 func (tsd *TickerSplitData) initialize(size int) {
 	tsd.Date = make([]string, size)
-	tsd.Split = make([]string, size)	
+	tsd.BeforeSplitQty = make([]int, size)
+	tsd.AfterSplitQty = make([]int, size)	
 }
 
 func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
@@ -260,11 +262,22 @@ func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[stri
 
 func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
 	var err error
+	var int64val int64
 	for key, value := range fieldIndex {
 	   if key == "date" {
 			tsd.Date[index] = strings.TrimSpace(data[value])
 		} else if key == "value" {
-			tsd.Split[index] = strings.TrimSpace(data[value])
+			splitData := strings.Split(data[value], ":")
+			int64val, err = strconv.ParseInt(splitData[1], 10, 16)
+			if err != nil {
+				return err
+			}
+			tsd.BeforeSplitQty[index] = int(int64val)
+			int64val, err = strconv.ParseInt(splitData[0], 10, 16)
+			if err != nil {
+				return err
+			}
+			tsd.AfterSplitQty[index] = int(int64val)
 		}
 	}
 	return err

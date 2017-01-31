@@ -117,8 +117,9 @@ func TestReadSplitData(t *testing.T) {
 	symbol := "someticker"
 	result, err := csvReader.ReadSplitData(symbol, "yahoo")
 	var expectedValue TickerSplitData
-	expectedValue.Date = []string{"2005060"}
-	expectedValue.Split = []string{"2:1"}
+	expectedValue.Date = []string{"20050609"}
+	expectedValue.BeforeSplitQty = []int{1}
+	expectedValue.AfterSplitQty = []int{2}
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
 		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
 		t.Log("Returned error is:", err)
