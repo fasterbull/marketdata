@@ -34,7 +34,7 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
 		return tickerDd, errors.New("File Open Error: " + err.Error())
 	}
 	r := bufio.NewReader(f)
-	err = addFromYahooData(&tickerDd, "DIVIDEND", r)
+	err = addFromYahooSplitDivData(&tickerDd, "dividend", r)
 	return tickerDd, err
 }
 
@@ -49,18 +49,26 @@ func (csvReader CsvReader) ReadSplitData(symbol string, source string) (TickerSp
 	if err != nil {
 		return tickerSd, errors.New("File Open Error: " + err.Error())
 	}
-	r := bufio.NewReader(f)
-	err = addFromYahooData(&tickerSd, "SPLIT", r)
+	if (source == "yahoo") {
+		r := bufio.NewReader(f)
+		err = addFromYahooSplitDivData(&tickerSd, "split", r)
+	} else {
+		r := csv.NewReader(bufio.NewReader(f))
+		header := make(map[string]int)
+		header["date"] = 0
+		header["split"] = 1
+		err = addFromStandardCsvData(&tickerSd, header, r)
+	}
 	return tickerSd, err
 }
 
-func addFromYahooData(data Data, dataType string, r *bufio.Reader) error {
+func addFromYahooSplitDivData(data Data, dataType string, r *bufio.Reader) error {
 	line, err := r.ReadString(10)
 	records := [][]string{} 
 	var splitLine []string
     for err != io.EOF {           
         line, err = r.ReadString(10)
-		if strings.Contains(line, dataType) {
+		if strings.Contains(strings.ToLower(line), dataType) {
 			line = strings.Replace(line, "\n", "", -1)
 			splitLine = strings.Split(line, ",")
 			records = append(records, []string{splitLine[1], splitLine[2]})
@@ -68,11 +76,29 @@ func addFromYahooData(data Data, dataType string, r *bufio.Reader) error {
     }
 	header := make(map[string]int)
 	header["date"] = 0
-	header["value"] = 1
+	header[dataType] = 1
 	size := len(records)
 	data.initialize(len(records))
 	index := -1
 	for i := 0; i < size; i++ {
+		index++
+		err := data.addFromRecords(records[i], header, index)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addFromStandardCsvData(data Data, header map[string]int, r *csv.Reader) error {
+	records, err := r.ReadAll()
+	if err != nil {
+		return err
+	}
+	size := len(records)
+	data.initialize(size - 1)
+	index := -1
+	for i := 1; i < size; i++ {
 		index++
 		err := data.addFromRecords(records[i], header, index)
 		if err != nil {

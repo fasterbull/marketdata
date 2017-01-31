@@ -266,7 +266,7 @@ func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]
 	for key, value := range fieldIndex {
 	   if key == "date" {
 			tsd.Date[index] = strings.TrimSpace(data[value])
-		} else if key == "value" {
+		} else if key == "split" {
 			splitData := strings.Split(data[value], ":")
 			int64val, err = strconv.ParseInt(splitData[1], 10, 16)
 			if err != nil {

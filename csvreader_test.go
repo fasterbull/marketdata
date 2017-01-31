@@ -94,10 +94,10 @@ func TestReadTickerData(t *testing.T) {
 
 }
 
-func TestReadDividendData(t *testing.T) {
+func TestReadYahooDividendData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.DividendFileNamePattern = "{ticker}-splitdividend.csv"
+	csvReader.DividendFileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat  = "1/2/2006"
 	symbol := "someticker"
 	result, err := csvReader.ReadDividendData(symbol, "yahoo")
@@ -109,10 +109,10 @@ func TestReadDividendData(t *testing.T) {
 	fmt.Printf("Result is %v", result)
 }
 
-func TestReadSplitData(t *testing.T) {
+func TestReadYahooSplitData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.SplitFileNamePattern = "{ticker}-splitdividend.csv"
+	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat  = "1/2/2006"
 	symbol := "someticker"
 	result, err := csvReader.ReadSplitData(symbol, "yahoo")
@@ -120,6 +120,25 @@ func TestReadSplitData(t *testing.T) {
 	expectedValue.Date = []string{"20050609"}
 	expectedValue.BeforeSplitQty = []int{1}
 	expectedValue.AfterSplitQty = []int{2}
+	if !reflect.DeepEqual(result, expectedValue) || err != nil {
+		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Returned error is:", err)
+		t.Fail()
+	}
+}
+
+func TestReadStandardSplitData(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.SplitFileNamePattern = "{ticker}-splitdata.csv"
+	csvReader.DateFormat  = "20060102"
+	symbol := "someticker"
+	fmt.Printf("ReadData now")
+	result, err := csvReader.ReadSplitData(symbol, "")
+	var expectedValue TickerSplitData
+	expectedValue.Date = []string{"20050609", "20020605"}
+	expectedValue.BeforeSplitQty = []int{1, 2}
+	expectedValue.AfterSplitQty = []int{2, 3}
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
 		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
 		t.Log("Returned error is:", err)
