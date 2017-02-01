@@ -73,7 +73,7 @@ func TestReadTickerData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.TickerFileNamePattern = "{ticker}-{timeframe}.csv"
-	csvReader.DateFormat  = "1/2/2006"
+	csvReader.DateFormat  = "20060102"
 	symbol := "someticker"
 	var dateRange DateRange
 	tickerConfig := ReadConfig{"daily", nil, dateRange}
@@ -98,28 +98,30 @@ func TestReadYahooDividendData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.DividendFileNamePattern = "{ticker}-yahoosplitdividend.csv"
-	csvReader.DateFormat  = "1/2/2006"
+	csvReader.DateFormat  = "20060102"
 	symbol := "someticker"
 	result, err := csvReader.ReadDividendData(symbol, "yahoo")
-	if err != nil {
-		fmt.Printf("Failure %v", result)
-	    t.Log(err)
+	var expectedValue TickerDividendData
+	expectedValue.Date = []string{"20050620", "20050324", "20020308", "20011214"}
+	expectedValue.Amount = []float64{0.146000, 0.274000, 0.057500, 0.135000}
+	if !reflect.DeepEqual(result, expectedValue) || err != nil {
+		t.Log("Failed ReadYahooDividendData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Returned error is:", err)
 		t.Fail()
 	}
-	fmt.Printf("Result is %v", result)
 }
 
 func TestReadYahooSplitData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
-	csvReader.DateFormat  = "1/2/2006"
+	csvReader.DateFormat  = "20060102"
 	symbol := "someticker"
 	result, err := csvReader.ReadSplitData(symbol, "yahoo")
 	var expectedValue TickerSplitData
-	expectedValue.Date = []string{"20050609"}
-	expectedValue.BeforeSplitQty = []int{1}
-	expectedValue.AfterSplitQty = []int{2}
+	expectedValue.Date = []string{"20050609", "20020605"}
+	expectedValue.BeforeSplitQty = []int{1, 2}
+	expectedValue.AfterSplitQty = []int{2, 3}
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
 		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
 		t.Log("Returned error is:", err)
@@ -141,6 +143,23 @@ func TestReadStandardSplitData(t *testing.T) {
 	expectedValue.AfterSplitQty = []int{2, 3}
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
 		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Returned error is:", err)
+		t.Fail()
+	}
+}
+
+func TestReadStandardDividendData(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.DividendFileNamePattern = "{ticker}-dividenddata.csv"
+	csvReader.DateFormat  = "20060102"
+	symbol := "someticker"
+	result, err := csvReader.ReadDividendData(symbol, "")
+	var expectedValue TickerDividendData
+	expectedValue.Date = []string{"20050620", "20050324", "20020308", "20011214"}
+	expectedValue.Amount = []float64{0.146000, 0.274000, 0.057500, 0.135000}
+	if !reflect.DeepEqual(result, expectedValue) || err != nil {
+		t.Log("Failed ReadStandardDividendData. Result was: ", result, " but should be: ", expectedValue)
 		t.Log("Returned error is:", err)
 		t.Fail()
 	}

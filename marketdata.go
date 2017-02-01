@@ -250,7 +250,7 @@ func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[stri
 	for key, value := range fieldIndex {
 	   if key == "date" {
 			tdd.Date[index] = strings.TrimSpace(data[value])
-		} else if key == "value" {
+		} else if key == "dividend" {
 			tdd.Amount[index], err = strconv.ParseFloat(strings.TrimSpace(data[value]), 64)
 			if err != nil {
 				return err

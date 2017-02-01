@@ -33,8 +33,16 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
 	if err != nil {
 		return tickerDd, errors.New("File Open Error: " + err.Error())
 	}
-	r := bufio.NewReader(f)
-	err = addFromYahooSplitDivData(&tickerDd, "dividend", r)
+	if (source == "yahoo") {
+		r := bufio.NewReader(f)
+		err = addFromYahooSplitDivData(&tickerDd, "dividend", r)
+	} else {
+		r := csv.NewReader(bufio.NewReader(f))
+		header := make(map[string]int)
+		header["date"] = 0
+		header["dividend"] = 1
+		err = addFromStandardCsvData(&tickerDd, header, r)
+	}
 	return tickerDd, err
 }
 
