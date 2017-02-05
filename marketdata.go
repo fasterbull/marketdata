@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +12,8 @@ type DataReader interface {
 	ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error)
 	ReadEventData(event *Event) (EventData, error)
 	ReadDividendData(symbol string, source string) (TickerDividendData, error)
+	ReadSplitData(symbol string, source string) (TickerSplitData, error)
+	GetDateFormat() string
 }
 
 type Data interface {
@@ -65,14 +68,14 @@ type TickerData struct {
 }
 
 type TickerSplitData struct {
-	Date	[]string
-	BeforeSplitQty  []int
-	AfterSplitQty   []int
+	Date           []string
+	BeforeSplitQty []int
+	AfterSplitQty  []int
 }
 
 type TickerDividendData struct {
-	Date	[]string
-	Amount   []float64
+	Date   []string
+	Amount []float64
 }
 
 type EventData struct {
@@ -95,8 +98,8 @@ func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *Ti
 	var err error
 	var tdToWrite *TickerData
 	for _, config := range ticker.Config {
-		if (config.TimeFrame == ticker.BaseTimeFrame) {
-			tdToWrite = inTickerData;
+		if config.TimeFrame == ticker.BaseTimeFrame {
+			tdToWrite = inTickerData
 		} else {
 			higherTfTd, _ := createFromLowerTimeFrame(inTickerData, config.TimeFrame, dateFormat)
 			tdToWrite = &higherTfTd
@@ -112,6 +115,21 @@ func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *Ti
 func ReadEventData(dataReader DataReader, event *Event) (EventData, error) {
 	eventData, err := dataReader.ReadEventData(event)
 	return eventData, err
+}
+
+func ReadSplitData(dataReader DataReader, symbol string, source string) (TickerSplitData, error) {
+	tsd, err := dataReader.ReadSplitData(symbol, source)
+	if dataInDescOrder(tsd.Date, dataReader.GetDateFormat()) {
+		tsd = sortSplitDataInAscOrder(&tsd, createSplitDataHeaderMap())
+	}
+	return tsd, err
+}
+
+func createSplitDataHeaderMap() map[string]int {
+	header := make(map[string]int)
+	header["date"] = 0
+	header["split"] = 1
+	return header
 }
 
 func (td *TickerData) initialize(header map[string]int, size int) {
@@ -141,13 +159,13 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 
 func (tdd *TickerDividendData) initialize(size int) {
 	tdd.Date = make([]string, size)
-	tdd.Amount = make([]float64, size)	
+	tdd.Amount = make([]float64, size)
 }
 
 func (tsd *TickerSplitData) initialize(size int) {
 	tsd.Date = make([]string, size)
 	tsd.BeforeSplitQty = make([]int, size)
-	tsd.AfterSplitQty = make([]int, size)	
+	tsd.AfterSplitQty = make([]int, size)
 }
 
 func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
@@ -248,7 +266,7 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
 	var err error
 	for key, value := range fieldIndex {
-	   if key == "date" {
+		if key == "date" {
 			tdd.Date[index] = strings.TrimSpace(data[value])
 		} else if key == "dividend" {
 			tdd.Amount[index], err = strconv.ParseFloat(strings.TrimSpace(data[value]), 64)
@@ -264,7 +282,7 @@ func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]
 	var err error
 	var int64val int64
 	for key, value := range fieldIndex {
-	   if key == "date" {
+		if key == "date" {
 			tsd.Date[index] = strings.TrimSpace(data[value])
 		} else if key == "split" {
 			splitData := strings.Split(data[value], ":")
@@ -283,9 +301,38 @@ func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]
 	return err
 }
 
-func ProcessRawTickerData(inTd *TickerData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
+func sortSplitDataInAscOrder(tsd *TickerSplitData, fields map[string]int) TickerSplitData {
+	var tsdSorted TickerSplitData
+	tsdSorted.initialize(len(tsd.Date))
+	l := len(tsd.Date)
+	var i int
+	id := -1
+	for i = l - 1; i > -1; i-- {
+		id++
+		tsdSorted.addItem(tsd, id, i, id)
+	}
+	return tsdSorted
+}
+
+func sortDividendDataInAscOrder(tdd *TickerDividendData, fields map[string]int) TickerDividendData {
+	var tddSorted TickerDividendData
+	tddSorted.initialize(len(tdd.Date))
+	l := len(tdd.Date)
+	var i int
+	id := -1
+	for i = l - 1; i > -1; i-- {
+		id++
+		tddSorted.addItem(tdd, id, i, id)
+	}
+	return tddSorted
+}
+
+func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
 	fields := getFields(inTd, additionalFields, "")
 	td := addFieldsAndSortTickerData(inTd, fields, dateFormat)
+	if tsd.Date != nil {
+		fmt.Printf("Split data is nil")
+	}
 	for _, higherTf := range higherTfs {
 		td.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
 	}
@@ -382,7 +429,7 @@ func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string, dateFormat
 }
 
 func addFieldsAndSortTickerData(inTd *TickerData, fields map[string]int, dateFormat string) TickerData {
-	dataInDescOrder := inTd.tickerDataInDescOrder(dateFormat)
+	dataInDescOrder := dataInDescOrder(inTd.Date, dateFormat)
 	if dataInDescOrder {
 		return createTickerDataFromDescOrder(inTd, fields)
 	}
@@ -413,12 +460,12 @@ func createTickerDataFromDescOrder(inTd *TickerData, fields map[string]int) Tick
 	return td
 }
 
-func (td *TickerData) tickerDataInDescOrder(dateFormat string) bool {
-	if len(td.Date) <= 1 {
+func dataInDescOrder(date []string, dateFormat string) bool {
+	if len(date) <= 1 {
 		return true
 	}
-	date1, _ := time.Parse(dateFormat, td.Date[0])
-	date2, _ := time.Parse(dateFormat, td.Date[1])
+	date1, _ := time.Parse(dateFormat, date[0])
+	date2, _ := time.Parse(dateFormat, date[1])
 	return date1.After(date2)
 }
 
@@ -443,6 +490,27 @@ func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) 
 	}
 	if td.Volume != nil {
 		td.Volume[index] = inTd.Volume[inIndex]
+	}
+}
+
+func (tsd *TickerSplitData) addItem(inTsd *TickerSplitData, id int, inIndex int, index int) {
+	if tsd.Date != nil {
+		tsd.Date[index] = inTsd.Date[inIndex]
+	}
+	if tsd.BeforeSplitQty != nil {
+		tsd.BeforeSplitQty[index] = inTsd.BeforeSplitQty[inIndex]
+	}
+	if tsd.AfterSplitQty != nil {
+		tsd.AfterSplitQty[index] = inTsd.AfterSplitQty[inIndex]
+	}
+}
+
+func (tdd *TickerDividendData) addItem(inTdd *TickerDividendData, id int, inIndex int, index int) {
+	if tdd.Date != nil {
+		tdd.Date[index] = inTdd.Date[inIndex]
+	}
+	if tdd.Amount != nil {
+		tdd.Amount[index] = inTdd.Amount[inIndex]
 	}
 }
 

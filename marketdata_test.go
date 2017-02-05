@@ -1,23 +1,23 @@
 package marketdata
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
-	"errors"
 	"reflect"
 	"testing"
 )
 
 func TestWriteTickerData(t *testing.T) {
 	dateFormat := "1/2/2006"
-    outputPath := "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker" + string(os.PathSeparator) + "processed" + string(os.PathSeparator)
+	outputPath := "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker" + string(os.PathSeparator) + "processed" + string(os.PathSeparator)
 	csvWriter := CsvWriter{outputPath, "{ticker}-{timeframe}.csv", dateFormat}
-	tickerForWrite := TickerForWrite{"testticker", "daily", []WriteConfig{{"daily", false}, {"weekly", false}, {"monthly", false}} }
+	tickerForWrite := TickerForWrite{"testticker", "daily", []WriteConfig{{"daily", false}, {"weekly", false}, {"monthly", false}}}
 	processedTd := getExpectedDailyDataWithWeeklyAndMonthlyIds()
 	var err error
 	var result []byte
 	err = WriteTickerData(csvWriter, &processedTd, &tickerForWrite, dateFormat)
-    if err != nil {
+	if err != nil {
 		t.Log("Failed write TickerData. Error is: ", err)
 	}
 
@@ -36,11 +36,29 @@ func TestWriteTickerData(t *testing.T) {
 	}
 }
 
+func TestReadSplitDataAndSort(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
+	csvReader.DateFormat = "20060102"
+	symbol := "someticker"
+	result, err := ReadSplitData(csvReader, symbol, "yahoo")
+	var expectedValue TickerSplitData
+	expectedValue.Date = []string{"20020605", "20050609"}
+	expectedValue.BeforeSplitQty = []int{2, 1}
+	expectedValue.AfterSplitQty = []int{3, 2}
+	if !reflect.DeepEqual(result, expectedValue) || err != nil {
+		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Returned error is:", err)
+		t.Fail()
+	}
+}
+
 func getExpectedCsvData(baseTimeFrame string, targetTimeFrame string) string {
-	if (baseTimeFrame == "daily") {
-		if (targetTimeFrame == "weekly") {
+	if baseTimeFrame == "daily" {
+		if targetTimeFrame == "weekly" {
 			return getExpectedCsvWeeklyDataWithMonthlyIds()
-		} else if (targetTimeFrame == "monthly") {
+		} else if targetTimeFrame == "monthly" {
 			return getExpectedCsvMonthlyData()
 		} else {
 			return getExpectedCsvDailyDataWithMonthlyWeeklyIds()
@@ -48,7 +66,6 @@ func getExpectedCsvData(baseTimeFrame string, targetTimeFrame string) string {
 	}
 	return ""
 }
-
 
 func TestProcessRawTickerData(t *testing.T) {
 	testCases := []struct {
@@ -62,12 +79,13 @@ func TestProcessRawTickerData(t *testing.T) {
 		{"'Add weekly and monthly ids'", []string{"weekly", "monthly"}, []string{"weekly_id", "monthly_id", "id"}, "desc"},
 	}
 	baseTimeFrame := "daily"
+	var tsd TickerSplitData
 	for _, tc := range testCases {
 		inputTickerData, _ := getTestTickerData(tc.inputSortOrder, 0)
 		expectedResult, _ := getTestTickerData("asc", 0)
 		expectedResult.HigherTfIds = make(map[string][]int32)
 		dateFormat := "1/2/2006"
-		processedTd := ProcessRawTickerData(&inputTickerData, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
+		processedTd := ProcessRawTickerData(&inputTickerData, &tsd, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
 		for _, higherTf := range tc.higherTfs {
 			if higherTf == "weekly" {
 				expectedResult.HigherTfIds["weekly_id"] = []int32{-1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4}
@@ -100,10 +118,11 @@ func TestCreateFromLowerTimeFrame(t *testing.T) {
 		{"'Add weekly and monthly ids with completed week and month'", "weekly", []string{"weekly", "monthly"}, []string{"weekly_id", "monthly_id", "id"}, "weeklywithmonthly", 1},
 	}
 	baseTimeFrame := "daily"
+	var tsd TickerSplitData
 	for _, tc := range testCases {
 		inputTickerData, _ := getTestTickerData("asc", tc.dataSubtractAmount)
 		dateFormat := "1/2/2006"
-		processedTd := ProcessRawTickerData(&inputTickerData, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
+		processedTd := ProcessRawTickerData(&inputTickerData, &tsd, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
 		newTfTickerData, _ := createFromLowerTimeFrame(&processedTd, tc.targetTimeFrame, dateFormat)
 		expectedResult, _ := getExpectedHigherTfData(tc.expectedResultKey)
 		if !reflect.DeepEqual(newTfTickerData, expectedResult) {

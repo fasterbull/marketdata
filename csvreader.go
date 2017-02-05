@@ -11,13 +11,13 @@ import (
 )
 
 type CsvReader struct {
-	TickerDataPath        string
-	EventDataPath         string
-	TickerFileNamePattern string
-	EventFileNamePattern  string
+	TickerDataPath          string
+	EventDataPath           string
+	TickerFileNamePattern   string
+	EventFileNamePattern    string
 	DividendFileNamePattern string
-	SplitFileNamePattern  string
-	DateFormat            string
+	SplitFileNamePattern    string
+	DateFormat              string
 }
 
 type indexRange struct {
@@ -33,7 +33,7 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
 	if err != nil {
 		return tickerDd, errors.New("File Open Error: " + err.Error())
 	}
-	if (source == "yahoo") {
+	if source == "yahoo" {
 		r := bufio.NewReader(f)
 		err = addFromYahooSplitDivData(&tickerDd, "dividend", r)
 	} else {
@@ -57,7 +57,7 @@ func (csvReader CsvReader) ReadSplitData(symbol string, source string) (TickerSp
 	if err != nil {
 		return tickerSd, errors.New("File Open Error: " + err.Error())
 	}
-	if (source == "yahoo") {
+	if source == "yahoo" {
 		r := bufio.NewReader(f)
 		err = addFromYahooSplitDivData(&tickerSd, "split", r)
 	} else {
@@ -70,18 +70,23 @@ func (csvReader CsvReader) ReadSplitData(symbol string, source string) (TickerSp
 	return tickerSd, err
 }
 
+func (csvReader CsvReader) GetDateFormat() string {
+	return csvReader.DateFormat
+}
+
 func addFromYahooSplitDivData(data Data, dataType string, r *bufio.Reader) error {
 	line, err := r.ReadString(10)
-	records := [][]string{} 
+	records := [][]string{}
 	var splitLine []string
-    for err != io.EOF {           
-        line, err = r.ReadString(10)
+	for err != io.EOF {
+		line, err = r.ReadString(10)
 		if strings.Contains(strings.ToLower(line), dataType) {
 			line = strings.Replace(line, "\n", "", -1)
+			line = strings.Replace(line, "\r", "", -1)
 			splitLine = strings.Split(line, ",")
 			records = append(records, []string{splitLine[1], splitLine[2]})
 		}
-    }
+	}
 	header := make(map[string]int)
 	header["date"] = 0
 	header[dataType] = 1
@@ -180,9 +185,9 @@ func getCountOfMatchingItems(records [][]string, pattern string, index int) int 
 	count := 0
 	dataLength := len(records)
 	for i := 1; i < dataLength; i++ {
-	   if strings.Contains(records[i][index], pattern) {
-		   count++
-	   }
+		if strings.Contains(records[i][index], pattern) {
+			count++
+		}
 	}
 	return count
 }

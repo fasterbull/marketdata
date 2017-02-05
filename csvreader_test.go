@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"fmt"
 )
 
 func TestGetTickerDataFileName(t *testing.T) {
@@ -52,7 +51,7 @@ func TestReadEventData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.EventDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
 	csvReader.EventFileNamePattern = "{eventname}.csv"
-	csvReader.DateFormat  = "1/2/2006"
+	csvReader.DateFormat = "1/2/2006"
 	var event Event
 	event.Name = "testevent"
 	result, _ := csvReader.ReadEventData(&event)
@@ -73,7 +72,7 @@ func TestReadTickerData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.TickerFileNamePattern = "{ticker}-{timeframe}.csv"
-	csvReader.DateFormat  = "20060102"
+	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
 	var dateRange DateRange
 	tickerConfig := ReadConfig{"daily", nil, dateRange}
@@ -98,7 +97,7 @@ func TestReadYahooDividendData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.DividendFileNamePattern = "{ticker}-yahoosplitdividend.csv"
-	csvReader.DateFormat  = "20060102"
+	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
 	result, err := csvReader.ReadDividendData(symbol, "yahoo")
 	var expectedValue TickerDividendData
@@ -115,7 +114,7 @@ func TestReadYahooSplitData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
-	csvReader.DateFormat  = "20060102"
+	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
 	result, err := csvReader.ReadSplitData(symbol, "yahoo")
 	var expectedValue TickerSplitData
@@ -133,9 +132,8 @@ func TestReadStandardSplitData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.SplitFileNamePattern = "{ticker}-splitdata.csv"
-	csvReader.DateFormat  = "20060102"
+	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	fmt.Printf("ReadData now")
 	result, err := csvReader.ReadSplitData(symbol, "")
 	var expectedValue TickerSplitData
 	expectedValue.Date = []string{"20050609", "20020605"}
@@ -152,7 +150,7 @@ func TestReadStandardDividendData(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.DividendFileNamePattern = "{ticker}-dividenddata.csv"
-	csvReader.DateFormat  = "20060102"
+	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
 	result, err := csvReader.ReadDividendData(symbol, "")
 	var expectedValue TickerDividendData
@@ -181,7 +179,7 @@ func TestReadTickerDataHandlesErrors(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
 	csvReader.TickerFileNamePattern = "{ticker}-{timeframe}.csv"
-	csvReader.DateFormat  = "1/2/2006"
+	csvReader.DateFormat = "1/2/2006"
 	for _, tc := range testCases {
 		_, err := csvReader.ReadTickerData(tc.symbol, &tc.tickerConfig)
 		var expectedError = tc.errorMsg
@@ -205,7 +203,7 @@ func TestReadEventDataHandlesErrors(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.EventDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
 	csvReader.EventFileNamePattern = "{eventname}.csv"
-	csvReader.DateFormat  = "1/2/2006"
+	csvReader.DateFormat = "1/2/2006"
 	var event Event
 	for _, tc := range testCases {
 		event.Name = tc.eventName
