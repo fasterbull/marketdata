@@ -101,6 +101,11 @@ func TestProcessRawTickerData(t *testing.T) {
 	}
 }
 
+func TestAdjustTickerDataForSplits(t *testing.T) {
+	// tsd := getTickerSplitData()
+	// td, err := getTestTickerData("asc", 0)
+}
+
 func TestCreateFromLowerTimeFrame(t *testing.T) {
 	testCases := []struct {
 		name               string
@@ -196,6 +201,14 @@ func getTickerDataSlice(td *TickerData, dataSubtractAmount int) TickerData {
 	tdSlice.Close = td.Close[0:sL]
 	tdSlice.Volume = td.Volume[0:sL]
 	return tdSlice
+}
+
+func getTickerSplitData() TickerSplitData {
+	var tsd TickerSplitData
+	tsd.Date = []string{"12/2/2016", "12/19/2016"}
+	tsd.BeforeSplitQty = []int{2, 1}
+	tsd.AfterSplitQty = []int{3, 2}
+	return tsd
 }
 
 func getExpectedHigherTfData(higherTf string) (TickerData, error) {

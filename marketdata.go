@@ -328,14 +328,18 @@ func sortDividendDataInAscOrder(tdd *TickerDividendData, fields map[string]int) 
 }
 
 func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
-	fields := getFields(inTd, additionalFields, "")
-	td := addFieldsAndSortTickerData(inTd, fields, dateFormat)
+	td := createSortedTickerData(inTd, additionalFields, dateFormat)
 	if tsd.Date != nil {
 		fmt.Printf("Split data is nil")
 	}
 	for _, higherTf := range higherTfs {
 		td.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
 	}
+	return td
+}
+
+func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData, dateFormat string) TickerData {
+	td := createSortedTickerData(inTd, []string{}, dateFormat)
 	return td
 }
 
@@ -428,10 +432,13 @@ func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string, dateFormat
 	return index, err
 }
 
-func addFieldsAndSortTickerData(inTd *TickerData, fields map[string]int, dateFormat string) TickerData {
+func createSortedTickerData(inTd *TickerData, additionalFields []string, dateFormat string) TickerData {
+	fields := getFields(inTd, additionalFields, "")
 	dataInDescOrder := dataInDescOrder(inTd.Date, dateFormat)
 	if dataInDescOrder {
 		return createTickerDataFromDescOrder(inTd, fields)
+	} else if len(additionalFields) == 0 {
+		return *inTd
 	}
 	return createTickerDataFromAscOrder(inTd, fields)
 }
