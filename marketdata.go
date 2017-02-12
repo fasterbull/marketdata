@@ -17,7 +17,7 @@ type DataReader interface {
 }
 
 type Data interface {
-	addFromRecords(data []string, fieldIndex map[string]int, index int) error
+	addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error
 	initialize(size int)
 }
 
@@ -30,8 +30,8 @@ type Event struct {
 }
 
 type DateRange struct {
-	StartDate string
-	EndDate   string
+	StartDate time.Time
+	EndDate   time.Time
 }
 
 type ReadConfig struct {
@@ -58,7 +58,7 @@ type TickerForWrite struct {
 
 type TickerData struct {
 	Id          []int32
-	Date        []string
+	Date        []time.Time
 	Open        []float64
 	High        []float64
 	Close       []float64
@@ -68,18 +68,18 @@ type TickerData struct {
 }
 
 type TickerSplitData struct {
-	Date           []string
+	Date           []time.Time
 	BeforeSplitQty []int
 	AfterSplitQty  []int
 }
 
 type TickerDividendData struct {
-	Date   []string
+	Date   []time.Time
 	Amount []float64
 }
 
 type EventData struct {
-	Date map[string]bool
+	Date map[time.Time]bool
 }
 
 func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]TickerData, error) {
@@ -94,14 +94,14 @@ func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]Ti
 	return data, err
 }
 
-func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite, dateFormat string) error {
+func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite) error {
 	var err error
 	var tdToWrite *TickerData
 	for _, config := range ticker.Config {
 		if config.TimeFrame == ticker.BaseTimeFrame {
 			tdToWrite = inTickerData
 		} else {
-			higherTfTd, _ := createFromLowerTimeFrame(inTickerData, config.TimeFrame, dateFormat)
+			higherTfTd, _ := createFromLowerTimeFrame(inTickerData, config.TimeFrame)
 			tdToWrite = &higherTfTd
 		}
 		err = dataWriter.WriteTickerData(ticker.Symbol, tdToWrite, &config)
@@ -119,7 +119,7 @@ func ReadEventData(dataReader DataReader, event *Event) (EventData, error) {
 
 func ReadSplitData(dataReader DataReader, symbol string, source string) (TickerSplitData, error) {
 	tsd, err := dataReader.ReadSplitData(symbol, source)
-	if dataInDescOrder(tsd.Date, dataReader.GetDateFormat()) {
+	if dataInDescOrder(tsd.Date) {
 		tsd = sortSplitDataInAscOrder(&tsd, createSplitDataHeaderMap())
 	}
 	return tsd, err
@@ -137,7 +137,7 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 		if key == "id" {
 			td.Id = make([]int32, size)
 		} else if key == "date" {
-			td.Date = make([]string, size)
+			td.Date = make([]time.Time, size)
 		} else if key == "open" {
 			td.Open = make([]float64, size)
 		} else if key == "high" {
@@ -158,12 +158,12 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 }
 
 func (tdd *TickerDividendData) initialize(size int) {
-	tdd.Date = make([]string, size)
+	tdd.Date = make([]time.Time, size)
 	tdd.Amount = make([]float64, size)
 }
 
 func (tsd *TickerSplitData) initialize(size int) {
-	tsd.Date = make([]string, size)
+	tsd.Date = make([]time.Time, size)
 	tsd.BeforeSplitQty = make([]int, size)
 	tsd.AfterSplitQty = make([]int, size)
 }
@@ -215,7 +215,7 @@ func getFields(td *TickerData, additionalFields []string, targetTimeFrame string
 	return field
 }
 
-func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
+func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
 	var err error
 	var int64 int64
 	for key, value := range fieldIndex {
@@ -226,7 +226,7 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 			}
 			td.Id[index] = int32(int64)
 		} else if key == "date" {
-			td.Date[index] = data[value]
+			td.Date[index], _ = time.Parse(dateFormat, data[value])
 		} else if key == "open" {
 			td.Open[index], err = strconv.ParseFloat(data[value], 64)
 			if err != nil {
@@ -263,11 +263,11 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 	return err
 }
 
-func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
+func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
 	var err error
 	for key, value := range fieldIndex {
 		if key == "date" {
-			tdd.Date[index] = strings.TrimSpace(data[value])
+			tdd.Date[index], _ = time.Parse(dateFormat, strings.TrimSpace(data[value]))
 		} else if key == "dividend" {
 			tdd.Amount[index], err = strconv.ParseFloat(strings.TrimSpace(data[value]), 64)
 			if err != nil {
@@ -278,12 +278,12 @@ func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[stri
 	return err
 }
 
-func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]int, index int) error {
+func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
 	var err error
 	var int64val int64
 	for key, value := range fieldIndex {
 		if key == "date" {
-			tsd.Date[index] = strings.TrimSpace(data[value])
+			tsd.Date[index], _ = time.Parse(dateFormat, strings.TrimSpace(data[value]))
 		} else if key == "split" {
 			splitData := strings.Split(data[value], ":")
 			int64val, err = strconv.ParseInt(splitData[1], 10, 16)
@@ -327,23 +327,23 @@ func sortDividendDataInAscOrder(tdd *TickerDividendData, fields map[string]int) 
 	return tddSorted
 }
 
-func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string, dateFormat string) TickerData {
-	td := createSortedTickerData(inTd, additionalFields, dateFormat)
+func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string) TickerData {
+	td := createSortedTickerData(inTd, additionalFields)
 	if tsd.Date != nil {
 		fmt.Printf("Split data is nil")
 	}
 	for _, higherTf := range higherTfs {
-		td.addHigherTimeFrameIds(baseTimeFrame, higherTf, dateFormat)
+		td.addHigherTimeFrameIds(baseTimeFrame, higherTf)
 	}
 	return td
 }
 
-func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData, dateFormat string) TickerData {
-	td := createSortedTickerData(inTd, []string{}, dateFormat)
-	return td
-}
+// func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerData {
+// 	td := createSortedTickerData(inTd, []string{})
+// 	return td
+// }
 
-func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string, dateFormat string) (TickerData, error) {
+func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string) (TickerData, error) {
 	var err error
 	var td TickerData
 	l := int32(len(inTd.Id))
@@ -354,7 +354,7 @@ func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string, dateF
 	}
 	fields := getFields(inTd, []string{}, requestedTimeFrame)
 	var lastCompletedTfIndex int32
-	lastCompletedTfIndex, err = getLastCompletedTimeFrameIndex(inTd, requestedTimeFrame, dateFormat)
+	lastCompletedTfIndex, err = getLastCompletedTimeFrameIndex(inTd, requestedTimeFrame)
 	//Account for the Ids starting at -1
 	rTfLength := inTd.HigherTfIds[rtfIdField][lastCompletedTfIndex] + 2
 	td.initialize(fields, int(rTfLength))
@@ -402,7 +402,7 @@ func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string, dateF
 	return td, err
 }
 
-func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string, dateFormat string) (int32, error) {
+func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string) (int32, error) {
 	var err error
 	var lastTimeFrameId int32
 	l := int32(len(td.Id))
@@ -411,7 +411,7 @@ func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string, dateFormat
 	if !ok {
 		return lastTimeFrameId, errors.New("Field " + timeFrame + " does not exist in ticker data.")
 	}
-	lastDate, _ := time.Parse(dateFormat, td.Date[l-1])
+	lastDate := td.Date[l-1]
 	if timeFrame == "weekly" {
 		if lastDate.Weekday().String() == "Friday" {
 			return int32(l - 1), err
@@ -432,9 +432,9 @@ func getLastCompletedTimeFrameIndex(td *TickerData, timeFrame string, dateFormat
 	return index, err
 }
 
-func createSortedTickerData(inTd *TickerData, additionalFields []string, dateFormat string) TickerData {
+func createSortedTickerData(inTd *TickerData, additionalFields []string) TickerData {
 	fields := getFields(inTd, additionalFields, "")
-	dataInDescOrder := dataInDescOrder(inTd.Date, dateFormat)
+	dataInDescOrder := dataInDescOrder(inTd.Date)
 	if dataInDescOrder {
 		return createTickerDataFromDescOrder(inTd, fields)
 	} else if len(additionalFields) == 0 {
@@ -467,13 +467,11 @@ func createTickerDataFromDescOrder(inTd *TickerData, fields map[string]int) Tick
 	return td
 }
 
-func dataInDescOrder(date []string, dateFormat string) bool {
+func dataInDescOrder(date []time.Time) bool {
 	if len(date) <= 1 {
 		return true
 	}
-	date1, _ := time.Parse(dateFormat, date[0])
-	date2, _ := time.Parse(dateFormat, date[1])
-	return date1.After(date2)
+	return date[0].After(date[1])
 }
 
 func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) {
@@ -521,7 +519,7 @@ func (tdd *TickerDividendData) addItem(inTdd *TickerDividendData, id int, inInde
 	}
 }
 
-func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date string, open float64, high float64, low float64, close float64, volume int64) {
+func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date time.Time, open float64, high float64, low float64, close float64, volume int64) {
 	td.Id[index] = inTd.HigherTfIds[requestedTfField][inIndex] + 1
 	td.Date[index] = date
 	td.Open[index] = open
@@ -534,23 +532,23 @@ func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfFie
 	}
 }
 
-func (td *TickerData) addHigherTimeFrameIds(tdTf string, higherTf string, dateFormat string) {
+func (td *TickerData) addHigherTimeFrameIds(tdTf string, higherTf string) {
 	if tdTf == "daily" {
 		if higherTf == "weekly" {
-			td.addWeeklyIdToDailyData(dateFormat)
+			td.addWeeklyIdToDailyData()
 		} else if higherTf == "monthly" {
-			td.addMonthlyIdToDailyData(dateFormat)
+			td.addMonthlyIdToDailyData()
 		}
 	}
 }
 
-func (td *TickerData) addWeeklyIdToDailyData(dateFormat string) {
+func (td *TickerData) addWeeklyIdToDailyData() {
 	_, ok := td.HigherTfIds["weekly_id"]
 	if !ok {
 		return
 	}
 	l := len(td.Date)
-	z := getIndexOfStartOfSecondWeek(td.Date, dateFormat)
+	z := getIndexOfStartOfSecondWeek(td.Date)
 	if z == -1 {
 		return
 	}
@@ -561,8 +559,8 @@ func (td *TickerData) addWeeklyIdToDailyData(dateFormat string) {
 	weeklyId := int32(0)
 	td.HigherTfIds["weekly_id"][z] = weeklyId
 	for i = z + 1; i < l; i++ {
-		curDate, _ := time.Parse(dateFormat, td.Date[i])
-		prevDate, _ := time.Parse(dateFormat, td.Date[i-1])
+		curDate := td.Date[i]
+		prevDate := td.Date[i-1]
 		if prevDate.Weekday() > curDate.Weekday() {
 			weeklyId++
 		}
@@ -570,13 +568,13 @@ func (td *TickerData) addWeeklyIdToDailyData(dateFormat string) {
 	}
 }
 
-func (td *TickerData) addMonthlyIdToDailyData(dateFormat string) {
+func (td *TickerData) addMonthlyIdToDailyData() {
 	_, ok := td.HigherTfIds["monthly_id"]
 	if !ok {
 		return
 	}
 	l := len(td.Date)
-	z := getIndexOfStartOfSecondMonth(td.Date, dateFormat)
+	z := getIndexOfStartOfSecondMonth(td.Date)
 	if z == -1 {
 		return
 	}
@@ -587,8 +585,8 @@ func (td *TickerData) addMonthlyIdToDailyData(dateFormat string) {
 	monthlyId := int32(0)
 	td.HigherTfIds["monthly_id"][z] = monthlyId
 	for i = z + 1; i < l; i++ {
-		curDate, _ := time.Parse(dateFormat, td.Date[i])
-		prevDate, _ := time.Parse(dateFormat, td.Date[i-1])
+		curDate := td.Date[i]
+		prevDate := td.Date[i-1]
 		if curDate.Month() != prevDate.Month() {
 			monthlyId++
 		}
@@ -607,14 +605,14 @@ func getLinkedHigherTimeFrames(targetTimeFrame string) []string {
 	}
 }
 
-func getIndexOfStartOfSecondWeek(date []string, dateFormat string) int {
+func getIndexOfStartOfSecondWeek(date []time.Time) int {
 	l := len(date)
 	if l <= 1 {
 		return -1
 	}
 	for i := 1; i < l; i++ {
-		curDate, _ := time.Parse(dateFormat, date[i])
-		prevDate, _ := time.Parse(dateFormat, date[i-1])
+		curDate := date[i]
+		prevDate := date[i-1]
 		if prevDate.Weekday() > curDate.Weekday() {
 			return i
 		}
@@ -622,14 +620,14 @@ func getIndexOfStartOfSecondWeek(date []string, dateFormat string) int {
 	return -1
 }
 
-func getIndexOfStartOfSecondMonth(date []string, dateFormat string) int {
+func getIndexOfStartOfSecondMonth(date []time.Time) int {
 	l := len(date)
 	if l <= 1 {
 		return -1
 	}
 	for i := 1; i < l; i++ {
-		curDate, _ := time.Parse(dateFormat, date[i])
-		prevDate, _ := time.Parse(dateFormat, date[i-1])
+		curDate := date[i]
+		prevDate := date[i-1]
 		if curDate.Month() != prevDate.Month() {
 			return i
 		}

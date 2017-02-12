@@ -35,13 +35,13 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
 	}
 	if source == "yahoo" {
 		r := bufio.NewReader(f)
-		err = addFromYahooSplitDivData(&tickerDd, "dividend", r)
+		err = addFromYahooSplitDivData(&tickerDd, "dividend", r, csvReader.DateFormat)
 	} else {
 		r := csv.NewReader(bufio.NewReader(f))
 		header := make(map[string]int)
 		header["date"] = 0
 		header["dividend"] = 1
-		err = addFromStandardCsvData(&tickerDd, header, r)
+		err = addFromStandardCsvData(&tickerDd, header, r, csvReader.DateFormat)
 	}
 	return tickerDd, err
 }
@@ -59,13 +59,13 @@ func (csvReader CsvReader) ReadSplitData(symbol string, source string) (TickerSp
 	}
 	if source == "yahoo" {
 		r := bufio.NewReader(f)
-		err = addFromYahooSplitDivData(&tickerSd, "split", r)
+		err = addFromYahooSplitDivData(&tickerSd, "split", r, csvReader.DateFormat)
 	} else {
 		r := csv.NewReader(bufio.NewReader(f))
 		header := make(map[string]int)
 		header["date"] = 0
 		header["split"] = 1
-		err = addFromStandardCsvData(&tickerSd, header, r)
+		err = addFromStandardCsvData(&tickerSd, header, r, csvReader.GetDateFormat())
 	}
 	return tickerSd, err
 }
@@ -74,7 +74,7 @@ func (csvReader CsvReader) GetDateFormat() string {
 	return csvReader.DateFormat
 }
 
-func addFromYahooSplitDivData(data Data, dataType string, r *bufio.Reader) error {
+func addFromYahooSplitDivData(data Data, dataType string, r *bufio.Reader, dateFormat string) error {
 	line, err := r.ReadString(10)
 	records := [][]string{}
 	var splitLine []string
@@ -95,7 +95,7 @@ func addFromYahooSplitDivData(data Data, dataType string, r *bufio.Reader) error
 	index := -1
 	for i := 0; i < size; i++ {
 		index++
-		err := data.addFromRecords(records[i], header, index)
+		err := data.addFromRecords(records[i], header, index, dateFormat)
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func addFromYahooSplitDivData(data Data, dataType string, r *bufio.Reader) error
 	return nil
 }
 
-func addFromStandardCsvData(data Data, header map[string]int, r *csv.Reader) error {
+func addFromStandardCsvData(data Data, header map[string]int, r *csv.Reader, dateFormat string) error {
 	records, err := r.ReadAll()
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func addFromStandardCsvData(data Data, header map[string]int, r *csv.Reader) err
 	index := -1
 	for i := 1; i < size; i++ {
 		index++
-		err := data.addFromRecords(records[i], header, index)
+		err := data.addFromRecords(records[i], header, index, dateFormat)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfi
 	if err != nil {
 		return tickerData, err
 	}
-	indexRange, err := getIndexRange(result, header, csvReader.DateFormat, &tickerConfig.Range)
+	indexRange, err := getIndexRange(result, header, &tickerConfig.Range, csvReader.DateFormat)
 	if err != nil {
 		return tickerData, err
 	}
@@ -146,7 +146,7 @@ func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfi
 	index := -1
 	for i := indexRange.begin; i < indexRange.end; i++ {
 		index++
-		err := tickerData.addFromRecords(result[i], header, index)
+		err := tickerData.addFromRecords(result[i], header, index, csvReader.DateFormat)
 		if err != nil {
 			return tickerData, err
 		}
@@ -156,7 +156,7 @@ func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfi
 
 func (csvReader CsvReader) ReadEventData(event *Event) (EventData, error) {
 	var eventData EventData
-	eventData.Date = make(map[string]bool)
+	eventData.Date = make(map[time.Time]bool)
 	fileName := getEventDataFileName(csvReader.EventFileNamePattern, event.Name)
 	filePath := csvReader.EventDataPath + string(os.PathSeparator) + fileName
 	f, err := os.Open(filePath)
@@ -174,7 +174,8 @@ func (csvReader CsvReader) ReadEventData(event *Event) (EventData, error) {
 		return eventData, err
 	}
 	for i := 1; i < dataLength; i++ {
-		eventData.Date[result[i][header["date"]]] = true
+		date, _ := time.Parse(csvReader.DateFormat, result[i][header["date"]])
+		eventData.Date[date] = true
 		if err == io.EOF {
 			break
 		}
@@ -191,11 +192,11 @@ func getCountOfMatchingItems(records [][]string, pattern string, index int) int 
 	}
 	return count
 }
-func getIndexRange(records [][]string, header map[string]int, dateFormat string, dateRange *DateRange) (indexRange, error) {
+func getIndexRange(records [][]string, header map[string]int, dateRange *DateRange, dateFormat string) (indexRange, error) {
 	dataLength := len(records)
 	var indexRange indexRange
 	var err error
-	if dateRange.StartDate == "" {
+	if dateRange.StartDate.IsZero() {
 		indexRange.begin = 1
 		indexRange.end = dataLength
 		return indexRange, err
@@ -208,13 +209,11 @@ func getIndexRange(records [][]string, header map[string]int, dateFormat string,
 		}
 		dateColumnIndex = dateColumn["date"]
 	}
-	startDate, _ := time.Parse(dateFormat, dateRange.StartDate)
-	endDate, _ := time.Parse(dateFormat, dateRange.EndDate)
 	for i := 1; i < dataLength; i++ {
 		date, _ := time.Parse(dateFormat, records[i][dateColumnIndex])
-		if indexRange.begin == 0 && (date.Equal(startDate) || date.After(startDate)) {
+		if indexRange.begin == 0 && (date.Equal(dateRange.StartDate) || date.After(dateRange.StartDate)) {
 			indexRange.begin = i
-		} else if date.Equal(endDate) || date.After(endDate) {
+		} else if date.Equal(dateRange.EndDate) || date.After(dateRange.EndDate) {
 			indexRange.end = i
 			break
 		}

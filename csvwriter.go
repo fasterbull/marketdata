@@ -31,7 +31,7 @@ func (csvWriter CsvWriter) WriteTickerData(symbol string, tickerData *TickerData
 		}
 		nextId, err = getNextId(fr)
 		fr.Close()
-		fwr, err = os.OpenFile(filePath + fileName, os.O_APPEND|os.O_WRONLY, 0600)
+		fwr, err = os.OpenFile(filePath+fileName, os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			return errors.New("File Write Error: " + err.Error())
 		}
@@ -49,20 +49,20 @@ func (csvWriter CsvWriter) WriteTickerData(symbol string, tickerData *TickerData
 	if !tickerConfig.Append {
 		printHeader(writer, tickerData, sortedHigherTfIds, newLine)
 	}
-	printTickerData(writer, tickerData, sortedHigherTfIds, nextId, newLine)
+	printTickerData(writer, tickerData, sortedHigherTfIds, nextId, newLine, csvWriter.DateFormat)
 	writer.Flush()
 	return err
 }
 
-func printTickerData(writer *bufio.Writer, tickerData *TickerData, sortedHigherTfIds []string, nextId int, newLine string) {
+func printTickerData(writer *bufio.Writer, tickerData *TickerData, sortedHigherTfIds []string, nextId int, newLine string, dateFormat string) {
 	l := len(tickerData.Date)
 	var i int
 	for i = nextId; i < l; i++ {
-		printTickerDataItem(writer, tickerData, sortedHigherTfIds, i, newLine)
+		printTickerDataItem(writer, tickerData, sortedHigherTfIds, i, newLine, dateFormat)
 	}
 }
 
-func printTickerDataItem(writer *bufio.Writer, td *TickerData, sortedHigherTfIds []string, index int, newLine string) {
+func printTickerDataItem(writer *bufio.Writer, td *TickerData, sortedHigherTfIds []string, index int, newLine string, dateFormat string) {
 	record := ""
 	if td.Id != nil {
 		record = record + fmt.Sprintf("%v", td.Id[index]) + ","
@@ -73,7 +73,7 @@ func printTickerDataItem(writer *bufio.Writer, td *TickerData, sortedHigherTfIds
 		}
 	}
 	if td.Date != nil {
-		record = record + td.Date[index] + ","
+		record = record + td.Date[index].Format(dateFormat) + ","
 	}
 	if td.Open != nil {
 		record = record + fmt.Sprintf("%v", td.Open[index]) + ","

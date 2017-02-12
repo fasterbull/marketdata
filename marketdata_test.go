@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestWriteTickerData(t *testing.T) {
@@ -16,7 +17,7 @@ func TestWriteTickerData(t *testing.T) {
 	processedTd := getExpectedDailyDataWithWeeklyAndMonthlyIds()
 	var err error
 	var result []byte
-	err = WriteTickerData(csvWriter, &processedTd, &tickerForWrite, dateFormat)
+	err = WriteTickerData(csvWriter, &processedTd, &tickerForWrite)
 	if err != nil {
 		t.Log("Failed write TickerData. Error is: ", err)
 	}
@@ -44,7 +45,8 @@ func TestReadSplitDataAndSort(t *testing.T) {
 	symbol := "someticker"
 	result, err := ReadSplitData(csvReader, symbol, "yahoo")
 	var expectedValue TickerSplitData
-	expectedValue.Date = []string{"20020605", "20050609"}
+	dates := []string{"20020605", "20050609"}
+	expectedValue.Date = createDates(dates, csvReader.DateFormat)
 	expectedValue.BeforeSplitQty = []int{2, 1}
 	expectedValue.AfterSplitQty = []int{3, 2}
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
@@ -84,8 +86,7 @@ func TestProcessRawTickerData(t *testing.T) {
 		inputTickerData, _ := getTestTickerData(tc.inputSortOrder, 0)
 		expectedResult, _ := getTestTickerData("asc", 0)
 		expectedResult.HigherTfIds = make(map[string][]int32)
-		dateFormat := "1/2/2006"
-		processedTd := ProcessRawTickerData(&inputTickerData, &tsd, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
+		processedTd := ProcessRawTickerData(&inputTickerData, &tsd, baseTimeFrame, tc.addFields, tc.higherTfs)
 		for _, higherTf := range tc.higherTfs {
 			if higherTf == "weekly" {
 				expectedResult.HigherTfIds["weekly_id"] = []int32{-1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4}
@@ -126,9 +127,8 @@ func TestCreateFromLowerTimeFrame(t *testing.T) {
 	var tsd TickerSplitData
 	for _, tc := range testCases {
 		inputTickerData, _ := getTestTickerData("asc", tc.dataSubtractAmount)
-		dateFormat := "1/2/2006"
-		processedTd := ProcessRawTickerData(&inputTickerData, &tsd, baseTimeFrame, tc.addFields, tc.higherTfs, dateFormat)
-		newTfTickerData, _ := createFromLowerTimeFrame(&processedTd, tc.targetTimeFrame, dateFormat)
+		processedTd := ProcessRawTickerData(&inputTickerData, &tsd, baseTimeFrame, tc.addFields, tc.higherTfs)
+		newTfTickerData, _ := createFromLowerTimeFrame(&processedTd, tc.targetTimeFrame)
 		expectedResult, _ := getExpectedHigherTfData(tc.expectedResultKey)
 		if !reflect.DeepEqual(newTfTickerData, expectedResult) {
 			t.Log("TestCreateFromLowerTimeFrame test case ", tc.name, " failed to create TickerData from a lower time frame. Result was: ", newTfTickerData, " but should be: ", expectedResult)
@@ -150,9 +150,10 @@ func getTestTickerData(order string, dataSubtractAmount int) (TickerData, error)
 
 func getDescTestTickerData(dataSubtractAmount int) TickerData {
 	var td TickerData
-	td.Date = []string{"1/2/2017", "12/30/2016", "12/29/2016", "12/28/2016", "12/27/2016", "12/23/2016", "12/22/2016", "12/21/2016", "12/20/2016",
+	dates := []string{"1/2/2017", "12/30/2016", "12/29/2016", "12/28/2016", "12/27/2016", "12/23/2016", "12/22/2016", "12/21/2016", "12/20/2016",
 		"12/19/2016", "12/16/2016", "12/15/2016", "12/14/2016", "12/13/2016", "12/12/2016", "12/9/2016", "12/8/2016",
 		"12/7/2016", "12/6/2016", "12/5/2016", "12/2/2016", "12/1/2016", "11/30/2016", "11/29/2016", "11/28/2016"}
+	td.Date = createDates(dates, "1/2/2006")
 	td.Open = []float64{226.02, 226.02, 226.02, 226.02, 226.02, 225.43, 225.60, 226.25, 226.15, 225.25, 226.01, 226.16,
 		227.41, 227.02, 226.40, 225.41, 224.57, 221.52, 221.22, 220.65, 219.67, 220.73, 221.63, 220.52, 221.16}
 	td.High = []float64{226.73, 226.73, 226.73, 226.73, 226.73, 225.72, 225.74, 226.45, 226.57, 226.02, 226.08, 227.81, 228.23,
@@ -171,9 +172,10 @@ func getDescTestTickerData(dataSubtractAmount int) TickerData {
 
 func getAscTestTickerData(dataSubtractAmount int) TickerData {
 	var td TickerData
-	td.Date = []string{"11/28/2016", "11/29/2016", "11/30/2016", "12/1/2016", "12/2/2016", "12/5/2016", "12/6/2016", "12/7/2016", "12/8/2016", "12/9/2016",
+	dates := []string{"11/28/2016", "11/29/2016", "11/30/2016", "12/1/2016", "12/2/2016", "12/5/2016", "12/6/2016", "12/7/2016", "12/8/2016", "12/9/2016",
 		"12/12/2016", "12/13/2016", "12/14/2016", "12/15/2016", "12/16/2016", "12/19/2016", "12/20/2016", "12/21/2016", "12/22/2016", "12/23/2016", "12/27/2016",
 		"12/28/2016", "12/29/2016", "12/30/2016", "1/2/2017"}
+	td.Date = createDates(dates, "1/2/2006")
 	td.Open = []float64{221.16, 220.52, 221.63, 220.73, 219.67, 220.65, 221.22, 221.52, 224.57, 225.41, 226.40, 227.02, 227.41, 226.16, 226.01,
 		225.25, 226.15, 226.25, 225.60, 225.43, 226.02, 226.02, 226.02, 226.02, 226.02}
 	td.High = []float64{221.48, 221.44, 221.82, 220.73, 220.25, 221.40, 221.74, 224.67, 225.70, 226.53, 226.96, 228.34, 228.23, 227.81,
@@ -205,7 +207,8 @@ func getTickerDataSlice(td *TickerData, dataSubtractAmount int) TickerData {
 
 func getTickerSplitData() TickerSplitData {
 	var tsd TickerSplitData
-	tsd.Date = []string{"12/2/2016", "12/19/2016"}
+	dates := []string{"12/2/2016", "12/19/2016"}
+	tsd.Date = createDates(dates, "1/2/2006")
 	tsd.BeforeSplitQty = []int{2, 1}
 	tsd.AfterSplitQty = []int{3, 2}
 	return tsd
@@ -227,7 +230,8 @@ func getExpectedHigherTfData(higherTf string) (TickerData, error) {
 func getExpectedWeeklyDataWithMonthlyIds() TickerData {
 	var tickerData TickerData
 	tickerData.Id = []int32{0, 1, 2, 3, 4}
-	tickerData.Date = []string{"11/28/2016", "12/5/2016", "12/12/2016", "12/19/2016", "12/27/2016"}
+	dates := []string{"11/28/2016", "12/5/2016", "12/12/2016", "12/19/2016", "12/27/2016"}
+	tickerData.Date = createDates(dates, "1/2/2006")
 	tickerData.Open = []float64{221.16, 220.65, 226.4, 225.25, 226.02}
 	tickerData.High = []float64{221.82, 226.53, 228.34, 226.57, 226.73}
 	tickerData.Low = []float64{219.15, 220.42, 224.67, 224.92, 226}
@@ -241,7 +245,8 @@ func getExpectedWeeklyDataWithMonthlyIds() TickerData {
 func getExpectedWeeklyData() TickerData {
 	var tickerData TickerData
 	tickerData.Id = []int32{0, 1, 2, 3, 4}
-	tickerData.Date = []string{"11/28/2016", "12/5/2016", "12/12/2016", "12/19/2016", "12/27/2016"}
+	dates := []string{"11/28/2016", "12/5/2016", "12/12/2016", "12/19/2016", "12/27/2016"}
+	tickerData.Date = createDates(dates, "1/2/2006")
 	tickerData.Open = []float64{221.16, 220.65, 226.4, 225.25, 226.02}
 	tickerData.High = []float64{221.82, 226.53, 228.34, 226.57, 226.73}
 	tickerData.Low = []float64{219.15, 220.42, 224.67, 224.92, 226}
@@ -253,7 +258,8 @@ func getExpectedWeeklyData() TickerData {
 func getExpectedMonthlyData() TickerData {
 	var tickerData TickerData
 	tickerData.Id = []int32{0, 1}
-	tickerData.Date = []string{"11/28/2016", "12/1/2016"}
+	dates := []string{"11/28/2016", "12/1/2016"}
+	tickerData.Date = createDates(dates, "1/2/2006")
 	tickerData.Open = []float64{221.16, 220.73}
 	tickerData.High = []float64{221.82, 228.34}
 	tickerData.Low = []float64{220.17, 219.15}
@@ -265,7 +271,8 @@ func getExpectedMonthlyData() TickerData {
 func getExpectedDailyData() TickerData {
 	var tickerData TickerData
 	tickerData.Id = []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}
-	tickerData.Date = []string{"11/28/2016", "11/29/2016", "11/30/2016", "12/1/2016", "12/2/2016", "12/5/2016", "12/6/2016", "12/7/2016", "12/8/2016", "12/9/2016", "12/12/2016", "12/13/2016", "12/14/2016", "12/15/2016", "12/16/2016", "12/19/2016", "12/20/2016", "12/21/2016", "12/22/2016", "12/23/2016", "12/27/2016", "12/28/2016", "12/29/2016", "12/30/2016", "1/2/2017"}
+	dates := []string{"11/28/2016", "11/29/2016", "11/30/2016", "12/1/2016", "12/2/2016", "12/5/2016", "12/6/2016", "12/7/2016", "12/8/2016", "12/9/2016", "12/12/2016", "12/13/2016", "12/14/2016", "12/15/2016", "12/16/2016", "12/19/2016", "12/20/2016", "12/21/2016", "12/22/2016", "12/23/2016", "12/27/2016", "12/28/2016", "12/29/2016", "12/30/2016", "1/2/2017"}
+	tickerData.Date = createDates(dates, "1/2/2006")
 	tickerData.Open = []float64{221.16, 220.52, 221.63, 220.73, 219.67, 220.65, 221.22, 221.52, 224.57, 225.41, 226.4, 227.02, 227.41, 226.16, 226.01, 225.25, 226.15, 226.25, 225.6, 225.43, 226.02, 226.02, 226.02, 226.02, 226.02}
 	tickerData.High = []float64{221.48, 221.44, 221.82, 220.73, 220.25, 221.4, 221.74, 224.67, 225.7, 226.53, 226.96, 228.34, 228.23, 227.81, 226.08, 226.02, 226.57, 226.45, 225.74, 225.72, 226.73, 226.73, 226.73, 226.73, 226.73}
 	tickerData.Low = []float64{220.36, 220.17, 220.31, 219.15, 219.26, 220.42, 220.66, 221.38, 224.26, 225.37, 225.76, 227, 225.37, 225.89, 224.67, 225.08, 225.88, 225.77, 224.92, 225.21, 226, 226, 226, 226, 226}
@@ -277,7 +284,8 @@ func getExpectedDailyData() TickerData {
 func getExpectedDailyDataWithWeeklyAndMonthlyIds() TickerData {
 	var tickerData TickerData
 	tickerData.Id = []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}
-	tickerData.Date = []string{"11/28/2016", "11/29/2016", "11/30/2016", "12/1/2016", "12/2/2016", "12/5/2016", "12/6/2016", "12/7/2016", "12/8/2016", "12/9/2016", "12/12/2016", "12/13/2016", "12/14/2016", "12/15/2016", "12/16/2016", "12/19/2016", "12/20/2016", "12/21/2016", "12/22/2016", "12/23/2016", "12/27/2016", "12/28/2016", "12/29/2016", "12/30/2016", "1/2/2017"}
+	dates := []string{"11/28/2016", "11/29/2016", "11/30/2016", "12/1/2016", "12/2/2016", "12/5/2016", "12/6/2016", "12/7/2016", "12/8/2016", "12/9/2016", "12/12/2016", "12/13/2016", "12/14/2016", "12/15/2016", "12/16/2016", "12/19/2016", "12/20/2016", "12/21/2016", "12/22/2016", "12/23/2016", "12/27/2016", "12/28/2016", "12/29/2016", "12/30/2016", "1/2/2017"}
+	tickerData.Date = createDates(dates, "1/2/2006")
 	tickerData.Open = []float64{221.16, 220.52, 221.63, 220.73, 219.67, 220.65, 221.22, 221.52, 224.57, 225.41, 226.4, 227.02, 227.41, 226.16, 226.01, 225.25, 226.15, 226.25, 225.6, 225.43, 226.02, 226.02, 226.02, 226.02, 226.02}
 	tickerData.High = []float64{221.48, 221.44, 221.82, 220.73, 220.25, 221.4, 221.74, 224.67, 225.7, 226.53, 226.96, 228.34, 228.23, 227.81, 226.08, 226.02, 226.57, 226.45, 225.74, 225.72, 226.73, 226.73, 226.73, 226.73, 226.73}
 	tickerData.Low = []float64{220.36, 220.17, 220.31, 219.15, 219.26, 220.42, 220.66, 221.38, 224.26, 225.37, 225.76, 227, 225.37, 225.89, 224.67, 225.08, 225.88, 225.77, 224.92, 225.21, 226, 226, 226, 226, 226}
@@ -287,4 +295,13 @@ func getExpectedDailyDataWithWeeklyAndMonthlyIds() TickerData {
 	tickerData.HigherTfIds["monthly_id"] = []int32{-1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
 	tickerData.HigherTfIds["weekly_id"] = []int32{-1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4}
 	return tickerData
+}
+
+func createDates(dates []string, dateFormat string) []time.Time {
+	size := len(dates)
+	realDates := make([]time.Time, size)
+	for x := 0; x < size; x++ {
+		realDates[x], _ = time.Parse(dateFormat, dates[x])
+	}
+	return realDates
 }
