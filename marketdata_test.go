@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -103,8 +104,12 @@ func TestProcessRawTickerData(t *testing.T) {
 }
 
 func TestAdjustTickerDataForSplits(t *testing.T) {
-	// tsd := getTickerSplitData()
-	// td, err := getTestTickerData("asc", 0)
+	tsd := getTickerSplitData()
+	td, err := getTestTickerData("asc", 0)
+	if err == nil {
+		tdNew := AdjustTickerDataForSplits(&td, &tsd)
+		fmt.Printf("Value is %v\n", tdNew)
+	}
 }
 
 func TestCreateFromLowerTimeFrame(t *testing.T) {

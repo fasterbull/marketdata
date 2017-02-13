@@ -338,10 +338,41 @@ func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame 
 	return td
 }
 
-// func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerData {
-// 	td := createSortedTickerData(inTd, []string{})
-// 	return td
-// }
+func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerData {
+	td := createSortedTickerData(inTd, []string{})
+	size := len(tsd.Date)
+	for x := 0; x < size; x++ {
+		fmt.Printf("Date is %v\n", tsd.Date[x])
+		i := getIndexOfDateValue(td.Date, tsd.Date[x])
+		if i > -1 {
+			fmt.Printf("Index is %v\n", i)
+			fmt.Printf("Value is %v\n", td.Date[i])
+			td.adjustTickerDataForSplitEvent(i, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
+		}
+	}
+	return td
+}
+
+func getIndexOfDateValue(dates []time.Time, date time.Time) int32 {
+	for i := range dates {
+		if dates[i] == date {
+			return int32(i)
+		}
+	}
+	return -1
+}
+
+func (td *TickerData) adjustTickerDataForSplitEvent(index int32, beforeSplityQty int, afterSplitQty int) {
+	priceRatio := float64(beforeSplityQty) / float64(afterSplitQty)
+	volumeRatio := float32(afterSplitQty) / float32(beforeSplityQty)
+	for x := index; x > -1; x-- {
+		td.Open[x] = td.Open[x] * priceRatio
+		td.High[x] = td.High[x] * priceRatio
+		td.Low[x] = td.Low[x] * priceRatio
+		td.Close[x] = td.Close[x] * priceRatio
+		td.Volume[x] = int64(float32(td.Volume[x]) * volumeRatio)
+	}
+}
 
 func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string) (TickerData, error) {
 	var err error
