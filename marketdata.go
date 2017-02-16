@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"math"
 )
 
 type DataReader interface {
@@ -342,12 +343,9 @@ func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerDat
 	td := createSortedTickerData(inTd, []string{})
 	size := len(tsd.Date)
 	for x := 0; x < size; x++ {
-		fmt.Printf("Date is %v\n", tsd.Date[x])
 		i := getIndexOfDateValue(td.Date, tsd.Date[x])
 		if i > -1 {
-			fmt.Printf("Index is %v\n", i)
-			fmt.Printf("Value is %v\n", td.Date[i])
-			td.adjustTickerDataForSplitEvent(i, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
+			td.adjustTickerDataForSplitEvent(i - 1, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
 		}
 	}
 	return td
@@ -365,13 +363,32 @@ func getIndexOfDateValue(dates []time.Time, date time.Time) int32 {
 func (td *TickerData) adjustTickerDataForSplitEvent(index int32, beforeSplityQty int, afterSplitQty int) {
 	priceRatio := float64(beforeSplityQty) / float64(afterSplitQty)
 	volumeRatio := float32(afterSplitQty) / float32(beforeSplityQty)
+	dp := numDecimalPlaces(td.Open[index])
 	for x := index; x > -1; x-- {
-		td.Open[x] = td.Open[x] * priceRatio
-		td.High[x] = td.High[x] * priceRatio
-		td.Low[x] = td.Low[x] * priceRatio
-		td.Close[x] = td.Close[x] * priceRatio
+		td.Open[x] = td.Open[x] * priceRatio //RoundPlus((td.Open[x] * priceRatio), dp)
+		td.High[x] = RoundPlus((td.High[x] * priceRatio), dp)
+		td.Low[x] = RoundPlus((td.Low[x] * priceRatio), dp)
+		td.Close[x] = RoundPlus((td.Close[x] * priceRatio), dp)
 		td.Volume[x] = int64(float32(td.Volume[x]) * volumeRatio)
 	}
+}
+
+func numDecimalPlaces(v float64) int {
+    s := strconv.FormatFloat(v, 'f', -1, 64)
+    i := strings.IndexByte(s, '.')
+    if i > -1 {
+        return len(s) - i - 1
+    }
+    return 0
+}
+
+func RoundPlus(f float64, places int) (float64) {
+    shift := math.Pow(10, float64(places))
+    return Round(f * shift) / shift;    
+}
+
+func Round(f float64) float64 {
+    return math.Floor(f + .5)
 }
 
 func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string) (TickerData, error) {

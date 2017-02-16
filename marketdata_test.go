@@ -2,7 +2,6 @@ package marketdata
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -57,19 +56,6 @@ func TestReadSplitDataAndSort(t *testing.T) {
 	}
 }
 
-func getExpectedCsvData(baseTimeFrame string, targetTimeFrame string) string {
-	if baseTimeFrame == "daily" {
-		if targetTimeFrame == "weekly" {
-			return getExpectedCsvWeeklyDataWithMonthlyIds()
-		} else if targetTimeFrame == "monthly" {
-			return getExpectedCsvMonthlyData()
-		} else {
-			return getExpectedCsvDailyDataWithMonthlyWeeklyIds()
-		}
-	}
-	return ""
-}
-
 func TestProcessRawTickerData(t *testing.T) {
 	testCases := []struct {
 		name           string
@@ -105,10 +91,12 @@ func TestProcessRawTickerData(t *testing.T) {
 
 func TestAdjustTickerDataForSplits(t *testing.T) {
 	tsd := getTickerSplitData()
-	td, err := getTestTickerData("asc", 0)
-	if err == nil {
-		tdNew := AdjustTickerDataForSplits(&td, &tsd)
-		fmt.Printf("Value is %v\n", tdNew)
+	td, _ := getTestPreSplitAdjustedTickerData("desc", 0)
+	processedTd := AdjustTickerDataForSplits(&td, &tsd)
+	expectedResult := getTestSplitAdjustedTickerData()
+	if !reflect.DeepEqual(processedTd, expectedResult) {
+		t.Log("TestAdjustTickerDataForSplits failed to adjust ticker data for splits. Result was: ", processedTd, " but should be: ", expectedResult)
+		t.Fail()
 	}
 }
 
@@ -140,6 +128,19 @@ func TestCreateFromLowerTimeFrame(t *testing.T) {
 			t.Fail()
 		}
 	}
+}
+
+func getExpectedCsvData(baseTimeFrame string, targetTimeFrame string) string {
+	if baseTimeFrame == "daily" {
+		if targetTimeFrame == "weekly" {
+			return getExpectedCsvWeeklyDataWithMonthlyIds()
+		} else if targetTimeFrame == "monthly" {
+			return getExpectedCsvMonthlyData()
+		} else {
+			return getExpectedCsvDailyDataWithMonthlyWeeklyIds()
+		}
+	}
+	return ""
 }
 
 func getTestTickerData(order string, dataSubtractAmount int) (TickerData, error) {
@@ -197,6 +198,68 @@ func getAscTestTickerData(dataSubtractAmount int) TickerData {
 	return getTickerDataSlice(&td, dataSubtractAmount)
 }
 
+func getTestPreSplitAdjustedTickerData(order string, dataSubtractAmount int) (TickerData, error) {
+	var err error
+	if order == "asc" {
+		return getAscTestPreSplitAdjustedTickerData(dataSubtractAmount), err
+	} else if order == "desc" {
+		return getDescTestPreSplitAdjustedTickerData(dataSubtractAmount), err
+	}
+	var td TickerData
+	return td, errors.New("Order must be 'asc' or 'desc'")
+}
+
+func getTickerSplitData() TickerSplitData {
+	var tsd TickerSplitData
+	dates := []string{"12/29/2016", "1/2/2017"}
+	tsd.Date = createDates(dates, "1/2/2006")
+	tsd.BeforeSplitQty = []int{1, 2}
+	tsd.AfterSplitQty = []int{2, 3}
+	return tsd
+}
+
+func getDescTestPreSplitAdjustedTickerData(dataSubtractAmount int) TickerData {
+	var td TickerData
+	dates := []string{"1/2/2017", "12/30/2016", "12/29/2016", "12/28/2016"}
+	td.Date = createDates(dates, "1/2/2006")
+	td.Open = []float64{74.59, 113.01, 113.01, 226.02}
+	td.High = []float64{74.82, 113.37, 113.37, 226.73}
+	td.Low = []float64{74.58, 113, 113, 226.00}
+	td.Close = []float64{74.67, 113.14, 113.14, 226.27}
+	td.Volume = []int64{123163200, 82108800, 82108800, 41054400}
+	if dataSubtractAmount == 0 {
+		return td
+	}
+	return getTickerDataSlice(&td, dataSubtractAmount)
+}
+
+func getAscTestPreSplitAdjustedTickerData(dataSubtractAmount int) TickerData {
+	var td TickerData
+	dates := []string{"12/28/2016", "12/29/2016", "12/30/2016", "1/2/2017"}
+	td.Date = createDates(dates, "1/2/2006")
+	td.Open = []float64{226.02, 113.01, 113.01, 74.59}
+	td.High = []float64{226.73, 113.37, 113.37, 74.82}
+	td.Low = []float64{226.00, 113, 113, 74.58}
+	td.Close = []float64{226.27, 113.14, 113.14, 74.67}
+	td.Volume = []int64{41054400, 82108800, 82108800, 123163200}
+	if dataSubtractAmount == 0 {
+		return td
+	}
+	return getTickerDataSlice(&td, dataSubtractAmount)
+}
+
+func getTestSplitAdjustedTickerData() TickerData {
+	var td TickerData
+	dates := []string{"12/28/2016", "12/29/2016", "12/30/2016", "1/2/2017"}
+	td.Date = createDates(dates, "1/2/2006")
+	td.Open = []float64{75.34, 75.34, 75.34, 74.59}
+	td.High = []float64{75.58, 75.58, 75.58, 74.82}
+	td.Low = []float64{75.33, 75.33, 75.33, 74.58}
+	td.Close = []float64{75.43, 75.43, 75.43, 74.67}
+	td.Volume = []int64{123163200, 123163200, 123163200, 123163200}
+	return td
+}
+
 func getTickerDataSlice(td *TickerData, dataSubtractAmount int) TickerData {
 	var tdSlice TickerData
 	l := len(td.Date)
@@ -208,15 +271,6 @@ func getTickerDataSlice(td *TickerData, dataSubtractAmount int) TickerData {
 	tdSlice.Close = td.Close[0:sL]
 	tdSlice.Volume = td.Volume[0:sL]
 	return tdSlice
-}
-
-func getTickerSplitData() TickerSplitData {
-	var tsd TickerSplitData
-	dates := []string{"12/2/2016", "12/19/2016"}
-	tsd.Date = createDates(dates, "1/2/2006")
-	tsd.BeforeSplitQty = []int{2, 1}
-	tsd.AfterSplitQty = []int{3, 2}
-	return tsd
 }
 
 func getExpectedHigherTfData(higherTf string) (TickerData, error) {
