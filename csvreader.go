@@ -25,7 +25,7 @@ type indexRange struct {
 	end   int
 }
 
-func (csvReader CsvReader) ReadDividendData(symbol string, source string) (TickerDividendData, error) {
+func (csvReader CsvReader) ReadDividendData(symbol string, source DataSource) (TickerDividendData, error) {
 	var tickerDd TickerDividendData
 	fileName := getFileName(csvReader.DividendFileNamePattern, "{ticker}", symbol)
 	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
@@ -33,7 +33,7 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
 	if err != nil {
 		return tickerDd, errors.New("File Open Error: " + err.Error())
 	}
-	if source == "yahoo" {
+	if source == YAHOO {
 		r := bufio.NewReader(f)
 		err = addFromYahooSplitDivData(&tickerDd, "dividend", r, csvReader.DateFormat)
 	} else {
@@ -46,7 +46,7 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source string) (Ticke
 	return tickerDd, err
 }
 
-func (csvReader CsvReader) ReadSplitData(symbol string, source string) (TickerSplitData, error) {
+func (csvReader CsvReader) ReadSplitData(symbol string, source DataSource) (TickerSplitData, error) {
 	var tickerSd TickerSplitData
 	fileName := getFileName(csvReader.SplitFileNamePattern, "{ticker}", symbol)
 	if fileName == "" {
@@ -57,7 +57,7 @@ func (csvReader CsvReader) ReadSplitData(symbol string, source string) (TickerSp
 	if err != nil {
 		return tickerSd, errors.New("File Open Error: " + err.Error())
 	}
-	if source == "yahoo" {
+	if source == YAHOO {
 		r := bufio.NewReader(f)
 		err = addFromYahooSplitDivData(&tickerSd, "split", r, csvReader.DateFormat)
 	} else {

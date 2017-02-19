@@ -9,11 +9,18 @@ import (
 	"math"
 )
 
+type DataSource string
+
+const (
+	YAHOO DataSource = "YAHOO"
+	OTHER = "OTHER"
+)
+
 type DataReader interface {
 	ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error)
 	ReadEventData(event *Event) (EventData, error)
-	ReadDividendData(symbol string, source string) (TickerDividendData, error)
-	ReadSplitData(symbol string, source string) (TickerSplitData, error)
+	ReadDividendData(symbol string, source DataSource) (TickerDividendData, error)
+	ReadSplitData(symbol string, source DataSource) (TickerSplitData, error)
 	GetDateFormat() string
 }
 
@@ -95,6 +102,19 @@ func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]Ti
 	return data, err
 }
 
+func ReadEventData(dataReader DataReader, event *Event) (EventData, error) {
+	eventData, err := dataReader.ReadEventData(event)
+	return eventData, err
+}
+
+func ReadSplitData(dataReader DataReader, symbol string, source DataSource) (TickerSplitData, error) {
+	tsd, err := dataReader.ReadSplitData(symbol, source)
+	if dataInDescOrder(tsd.Date) {
+		tsd = sortSplitDataInAscOrder(&tsd, createSplitDataHeaderMap())
+	}
+	return tsd, err
+}
+
 func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite) error {
 	var err error
 	var tdToWrite *TickerData
@@ -113,17 +133,27 @@ func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *Ti
 	return err
 }
 
-func ReadEventData(dataReader DataReader, event *Event) (EventData, error) {
-	eventData, err := dataReader.ReadEventData(event)
-	return eventData, err
+func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string) TickerData {
+	td := createSortedTickerData(inTd, additionalFields)
+	if tsd.Date != nil {
+		fmt.Printf("Split data is nil")
+	}
+	for _, higherTf := range higherTfs {
+		td.addHigherTimeFrameIds(baseTimeFrame, higherTf)
+	}
+	return td
 }
 
-func ReadSplitData(dataReader DataReader, symbol string, source string) (TickerSplitData, error) {
-	tsd, err := dataReader.ReadSplitData(symbol, source)
-	if dataInDescOrder(tsd.Date) {
-		tsd = sortSplitDataInAscOrder(&tsd, createSplitDataHeaderMap())
+func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerData {
+	td := createSortedTickerData(inTd, []string{})
+	size := len(tsd.Date)
+	for x := 0; x < size; x++ {
+		i := getIndexOfDateValue(td.Date, tsd.Date[x])
+		if i > -1 {
+			td.adjustTickerDataForSplitEvent(i - 1, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
+		}
 	}
-	return tsd, err
+	return td
 }
 
 func createSplitDataHeaderMap() map[string]int {
@@ -328,29 +358,6 @@ func sortDividendDataInAscOrder(tdd *TickerDividendData, fields map[string]int) 
 	return tddSorted
 }
 
-func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string) TickerData {
-	td := createSortedTickerData(inTd, additionalFields)
-	if tsd.Date != nil {
-		fmt.Printf("Split data is nil")
-	}
-	for _, higherTf := range higherTfs {
-		td.addHigherTimeFrameIds(baseTimeFrame, higherTf)
-	}
-	return td
-}
-
-func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerData {
-	td := createSortedTickerData(inTd, []string{})
-	size := len(tsd.Date)
-	for x := 0; x < size; x++ {
-		i := getIndexOfDateValue(td.Date, tsd.Date[x])
-		if i > -1 {
-			td.adjustTickerDataForSplitEvent(i - 1, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
-		}
-	}
-	return td
-}
-
 func getIndexOfDateValue(dates []time.Time, date time.Time) int32 {
 	for i := range dates {
 		if dates[i] == date {
@@ -365,7 +372,7 @@ func (td *TickerData) adjustTickerDataForSplitEvent(index int32, beforeSplityQty
 	volumeRatio := float32(afterSplitQty) / float32(beforeSplityQty)
 	dp := numDecimalPlaces(td.Open[index])
 	for x := index; x > -1; x-- {
-		td.Open[x] = td.Open[x] * priceRatio //RoundPlus((td.Open[x] * priceRatio), dp)
+		td.Open[x] = td.Open[x] * priceRatio
 		td.High[x] = RoundPlus((td.High[x] * priceRatio), dp)
 		td.Low[x] = RoundPlus((td.Low[x] * priceRatio), dp)
 		td.Close[x] = RoundPlus((td.Close[x] * priceRatio), dp)

@@ -103,7 +103,7 @@ func TestReadYahooDividendData(t *testing.T) {
 	csvReader.DividendFileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadDividendData(symbol, "yahoo")
+	result, err := csvReader.ReadDividendData(symbol, YAHOO)
 	var expectedValue TickerDividendData
 	dates := []string{"20050620", "20050324", "20020308", "20011214"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
@@ -121,7 +121,7 @@ func TestReadYahooSplitData(t *testing.T) {
 	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadSplitData(symbol, "yahoo")
+	result, err := csvReader.ReadSplitData(symbol, YAHOO)
 	var expectedValue TickerSplitData
 	dates := []string{"20050609", "20020605"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
@@ -140,7 +140,7 @@ func TestReadStandardSplitData(t *testing.T) {
 	csvReader.SplitFileNamePattern = "{ticker}-splitdata.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadSplitData(symbol, "")
+	result, err := csvReader.ReadSplitData(symbol, OTHER)
 	var expectedValue TickerSplitData
 	dates := []string{"20050609", "20020605"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
@@ -159,7 +159,7 @@ func TestReadStandardDividendData(t *testing.T) {
 	csvReader.DividendFileNamePattern = "{ticker}-dividenddata.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadDividendData(symbol, "")
+	result, err := csvReader.ReadDividendData(symbol, OTHER)
 	var expectedValue TickerDividendData
 	dates := []string{"20050620", "20050324", "20020308", "20011214"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)

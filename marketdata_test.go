@@ -43,7 +43,7 @@ func TestReadSplitDataAndSort(t *testing.T) {
 	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := ReadSplitData(csvReader, symbol, "yahoo")
+	result, err := ReadSplitData(csvReader, symbol, YAHOO)
 	var expectedValue TickerSplitData
 	dates := []string{"20020605", "20050609"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
