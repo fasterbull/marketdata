@@ -39,8 +39,8 @@ func TestWriteTickerData(t *testing.T) {
 
 func TestReadSplitDataAndSort(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
 	result, err := ReadSplitData(csvReader, symbol, YAHOO)
@@ -58,8 +58,8 @@ func TestReadSplitDataAndSort(t *testing.T) {
 
 func TestReadDividendDataAndSort(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.DividendFileNamePattern = "{ticker}-yahoosplitdividend.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
 	result, err := ReadDividendData(csvReader, symbol, YAHOO)

@@ -11,13 +11,9 @@ import (
 )
 
 type CsvReader struct {
-	TickerDataPath          string
-	EventDataPath           string
-	TickerFileNamePattern   string
-	EventFileNamePattern    string
-	DividendFileNamePattern string
-	SplitFileNamePattern    string
-	DateFormat              string
+	DataPath        string
+	FileNamePattern string
+	DateFormat      string
 }
 
 type indexRange struct {
@@ -25,10 +21,72 @@ type indexRange struct {
 	end   int
 }
 
-func (csvReader CsvReader) ReadDividendData(symbol string, source DataSource) (TickerDividendData, error) {
+func (csvReader CsvReader) readTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error) {
+	var tickerData TickerData
+	fileName := getTickerDataFileName(csvReader.FileNamePattern, symbol, tickerConfig.TimeFrame)
+	filePath := csvReader.DataPath + string(os.PathSeparator) + fileName
+	f, err := os.Open(filePath)
+	if err != nil {
+		return tickerData, errors.New("File Open Error: " + err.Error())
+	}
+	r := csv.NewReader(bufio.NewReader(f))
+	result, err := r.ReadAll()
+	if err != nil {
+		return tickerData, err
+	}
+	header, err := getColumnPositions(result[0], tickerConfig.Filter)
+	if err != nil {
+		return tickerData, err
+	}
+	indexRange, err := getIndexRange(result, header, &tickerConfig.Range, csvReader.DateFormat)
+	if err != nil {
+		return tickerData, err
+	}
+	tickerData.initialize(header, (indexRange.end - indexRange.begin))
+	index := -1
+	for i := indexRange.begin; i < indexRange.end; i++ {
+		index++
+		err := tickerData.addFromRecords(result[i], header, index, csvReader.DateFormat)
+		if err != nil {
+			return tickerData, err
+		}
+	}
+	return tickerData, nil
+}
+
+func (csvReader CsvReader) readEventData(event *Event) (EventData, error) {
+	var eventData EventData
+	eventData.Date = make(map[time.Time]bool)
+	fileName := getEventDataFileName(csvReader.FileNamePattern, event.Name)
+	filePath := csvReader.DataPath + string(os.PathSeparator) + fileName
+	f, err := os.Open(filePath)
+	if err != nil {
+		return eventData, errors.New("File Open Error: " + err.Error())
+	}
+	r := csv.NewReader(bufio.NewReader(f))
+	result, err := r.ReadAll()
+	if err != nil {
+		return eventData, err
+	}
+	dataLength := len(result)
+	header, err := getColumnPositions(result[0], []string{"date"})
+	if err != nil {
+		return eventData, err
+	}
+	for i := 1; i < dataLength; i++ {
+		date, _ := time.Parse(csvReader.DateFormat, result[i][header["date"]])
+		eventData.Date[date] = true
+		if err == io.EOF {
+			break
+		}
+	}
+	return eventData, nil
+}
+
+func (csvReader CsvReader) readDividendData(symbol string, source DataSource) (TickerDividendData, error) {
 	var tickerDd TickerDividendData
-	fileName := getFileName(csvReader.DividendFileNamePattern, "{ticker}", symbol)
-	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
+	fileName := getFileName(csvReader.FileNamePattern, "{ticker}", symbol)
+	filePath := csvReader.DataPath + string(os.PathSeparator) + fileName
 	f, err := os.Open(filePath)
 	if err != nil {
 		return tickerDd, errors.New("File Open Error: " + err.Error())
@@ -46,13 +104,13 @@ func (csvReader CsvReader) ReadDividendData(symbol string, source DataSource) (T
 	return tickerDd, err
 }
 
-func (csvReader CsvReader) ReadSplitData(symbol string, source DataSource) (TickerSplitData, error) {
+func (csvReader CsvReader) readSplitData(symbol string, source DataSource) (TickerSplitData, error) {
 	var tickerSd TickerSplitData
-	fileName := getFileName(csvReader.SplitFileNamePattern, "{ticker}", symbol)
+	fileName := getFileName(csvReader.FileNamePattern, "{ticker}", symbol)
 	if fileName == "" {
 		return tickerSd, errors.New("File for ticker: '" + symbol + "' does not exist.")
 	}
-	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
+	filePath := csvReader.DataPath + string(os.PathSeparator) + fileName
 	f, err := os.Open(filePath)
 	if err != nil {
 		return tickerSd, errors.New("File Open Error: " + err.Error())
@@ -65,12 +123,12 @@ func (csvReader CsvReader) ReadSplitData(symbol string, source DataSource) (Tick
 		header := make(map[string]int)
 		header["date"] = 0
 		header["split"] = 1
-		err = addFromStandardCsvData(&tickerSd, header, r, csvReader.GetDateFormat())
+		err = addFromStandardCsvData(&tickerSd, header, r, csvReader.getDateFormat())
 	}
 	return tickerSd, err
 }
 
-func (csvReader CsvReader) GetDateFormat() string {
+func (csvReader CsvReader) getDateFormat() string {
 	return csvReader.DateFormat
 }
 
@@ -121,67 +179,6 @@ func addFromStandardCsvData(data Data, header map[string]int, r *csv.Reader, dat
 	return nil
 }
 
-func (csvReader CsvReader) ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error) {
-	var tickerData TickerData
-	fileName := getTickerDataFileName(csvReader.TickerFileNamePattern, symbol, tickerConfig.TimeFrame)
-	filePath := csvReader.TickerDataPath + string(os.PathSeparator) + fileName
-	f, err := os.Open(filePath)
-	if err != nil {
-		return tickerData, errors.New("File Open Error: " + err.Error())
-	}
-	r := csv.NewReader(bufio.NewReader(f))
-	result, err := r.ReadAll()
-	if err != nil {
-		return tickerData, err
-	}
-	header, err := getColumnPositions(result[0], tickerConfig.Filter)
-	if err != nil {
-		return tickerData, err
-	}
-	indexRange, err := getIndexRange(result, header, &tickerConfig.Range, csvReader.DateFormat)
-	if err != nil {
-		return tickerData, err
-	}
-	tickerData.initialize(header, (indexRange.end - indexRange.begin))
-	index := -1
-	for i := indexRange.begin; i < indexRange.end; i++ {
-		index++
-		err := tickerData.addFromRecords(result[i], header, index, csvReader.DateFormat)
-		if err != nil {
-			return tickerData, err
-		}
-	}
-	return tickerData, nil
-}
-
-func (csvReader CsvReader) ReadEventData(event *Event) (EventData, error) {
-	var eventData EventData
-	eventData.Date = make(map[time.Time]bool)
-	fileName := getEventDataFileName(csvReader.EventFileNamePattern, event.Name)
-	filePath := csvReader.EventDataPath + string(os.PathSeparator) + fileName
-	f, err := os.Open(filePath)
-	if err != nil {
-		return eventData, errors.New("File Open Error: " + err.Error())
-	}
-	r := csv.NewReader(bufio.NewReader(f))
-	result, err := r.ReadAll()
-	if err != nil {
-		return eventData, err
-	}
-	dataLength := len(result)
-	header, err := getColumnPositions(result[0], []string{"date"})
-	if err != nil {
-		return eventData, err
-	}
-	for i := 1; i < dataLength; i++ {
-		date, _ := time.Parse(csvReader.DateFormat, result[i][header["date"]])
-		eventData.Date[date] = true
-		if err == io.EOF {
-			break
-		}
-	}
-	return eventData, nil
-}
 func getCountOfMatchingItems(records [][]string, pattern string, index int) int {
 	count := 0
 	dataLength := len(records)

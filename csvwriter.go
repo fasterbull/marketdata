@@ -12,14 +12,14 @@ import (
 )
 
 type CsvWriter struct {
-	OutputPath            string
-	TickerFileNamePattern string
-	DateFormat            string
+	OutputPath      string
+	FileNamePattern string
+	DateFormat      string
 }
 
-func (csvWriter CsvWriter) WriteTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error {
+func (csvWriter CsvWriter) writeTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error {
 	newLine := "\n"
-	fileName := getTickerDataFileName(csvWriter.TickerFileNamePattern, symbol, tickerConfig.TimeFrame)
+	fileName := getTickerDataFileName(csvWriter.FileNamePattern, symbol, tickerConfig.TimeFrame)
 	filePath := csvWriter.OutputPath
 	var fwr, fr *os.File
 	var err error

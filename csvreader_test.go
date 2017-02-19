@@ -50,12 +50,12 @@ func TestGetColumnPositions(t *testing.T) {
 
 func TestReadEventData(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.EventDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
-	csvReader.EventFileNamePattern = "{eventname}.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
+	csvReader.FileNamePattern = "{eventname}.csv"
 	csvReader.DateFormat = "1/2/2006"
 	var event Event
 	event.Name = "testevent"
-	result, _ := csvReader.ReadEventData(&event)
+	result, _ := csvReader.readEventData(&event)
 	dates := []string{"5/26/2000", "7/11/2000", "9/6/2011"}
 	realDates := createDates(dates, csvReader.DateFormat)
 	expectedValue := map[time.Time]bool{
@@ -73,13 +73,13 @@ func TestReadEventData(t *testing.T) {
 
 func TestReadTickerData(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.TickerFileNamePattern = "{ticker}-{timeframe}.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-{timeframe}.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
 	var dateRange DateRange
 	tickerConfig := ReadConfig{"daily", nil, dateRange}
-	result, _ := csvReader.ReadTickerData(symbol, &tickerConfig)
+	result, _ := csvReader.readTickerData(symbol, &tickerConfig)
 	var expectedValue TickerData
 	expectedValue.Id = []int32{0, 1, 2}
 	dates := []string{"12/7/2016", "12/8/2016", "12/9/2016"}
@@ -99,11 +99,11 @@ func TestReadTickerData(t *testing.T) {
 
 func TestReadYahooDividendData(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.DividendFileNamePattern = "{ticker}-yahoosplitdividend.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadDividendData(symbol, YAHOO)
+	result, err := csvReader.readDividendData(symbol, YAHOO)
 	var expectedValue TickerDividendData
 	dates := []string{"20050620", "20050324", "20020308", "20011214"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
@@ -117,18 +117,18 @@ func TestReadYahooDividendData(t *testing.T) {
 
 func TestReadYahooSplitData(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.SplitFileNamePattern = "{ticker}-yahoosplitdividend.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-yahoosplitdividend.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadSplitData(symbol, YAHOO)
+	result, err := csvReader.readSplitData(symbol, YAHOO)
 	var expectedValue TickerSplitData
 	dates := []string{"20050609", "20020605"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
 	expectedValue.BeforeSplitQty = []int{1, 2}
 	expectedValue.AfterSplitQty = []int{2, 3}
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
-		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Failed readSplitData. Result was: ", result, " but should be: ", expectedValue)
 		t.Log("Returned error is:", err)
 		t.Fail()
 	}
@@ -136,18 +136,18 @@ func TestReadYahooSplitData(t *testing.T) {
 
 func TestReadStandardSplitData(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.SplitFileNamePattern = "{ticker}-splitdata.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-splitdata.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadSplitData(symbol, OTHER)
+	result, err := csvReader.readSplitData(symbol, OTHER)
 	var expectedValue TickerSplitData
 	dates := []string{"20050609", "20020605"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
 	expectedValue.BeforeSplitQty = []int{1, 2}
 	expectedValue.AfterSplitQty = []int{2, 3}
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
-		t.Log("Failed ReadTickerSplitData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Failed readSplitData. Result was: ", result, " but should be: ", expectedValue)
 		t.Log("Returned error is:", err)
 		t.Fail()
 	}
@@ -155,11 +155,11 @@ func TestReadStandardSplitData(t *testing.T) {
 
 func TestReadStandardDividendData(t *testing.T) {
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.DividendFileNamePattern = "{ticker}-dividenddata.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-dividenddata.csv"
 	csvReader.DateFormat = "20060102"
 	symbol := "someticker"
-	result, err := csvReader.ReadDividendData(symbol, OTHER)
+	result, err := csvReader.readDividendData(symbol, OTHER)
 	var expectedValue TickerDividendData
 	dates := []string{"20050620", "20050324", "20020308", "20011214"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
@@ -185,11 +185,11 @@ func TestReadTickerDataHandlesErrors(t *testing.T) {
 		{"tickerFileNoHeader", "noheader", config, "Invalid CSV Header. Missing header item(s): id,date,open,high,low,close,volume"},
 	}
 	var csvReader CsvReader
-	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
-	csvReader.TickerFileNamePattern = "{ticker}-{timeframe}.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-{timeframe}.csv"
 	csvReader.DateFormat = "1/2/2006"
 	for _, tc := range testCases {
-		_, err := csvReader.ReadTickerData(tc.symbol, &tc.tickerConfig)
+		_, err := csvReader.readTickerData(tc.symbol, &tc.tickerConfig)
 		var expectedError = tc.errorMsg
 
 		if err == nil || !strings.Contains(err.Error(), expectedError) {
@@ -209,17 +209,17 @@ func TestReadEventDataHandlesErrors(t *testing.T) {
 		{"eventFileNoHeader", "noheader", "Invalid CSV Header. Missing header item(s): date"},
 	}
 	var csvReader CsvReader
-	csvReader.EventDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
-	csvReader.EventFileNamePattern = "{eventname}.csv"
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
+	csvReader.FileNamePattern = "{eventname}.csv"
 	csvReader.DateFormat = "1/2/2006"
 	var event Event
 	for _, tc := range testCases {
 		event.Name = tc.eventName
-		_, err := csvReader.ReadEventData(&event)
+		_, err := csvReader.readEventData(&event)
 		var expectedError = tc.errorMsg
 
 		if err == nil || !strings.Contains(err.Error(), expectedError) {
-			t.Log("ReadEventData test case ", tc.name, " did not handle invalid event file. Error was: ", err, " but should be: ", expectedError)
+			t.Log("readEventData test case ", tc.name, " did not handle invalid event file. Error was: ", err, " but should be: ", expectedError)
 			t.Fail()
 		}
 	}

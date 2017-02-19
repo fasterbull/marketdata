@@ -3,25 +3,25 @@ package marketdata
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
-	"math"
 )
 
 type DataSource string
 
 const (
 	YAHOO DataSource = "YAHOO"
-	OTHER = "OTHER"
+	OTHER            = "OTHER"
 )
 
 type DataReader interface {
-	ReadTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error)
-	ReadEventData(event *Event) (EventData, error)
-	ReadDividendData(symbol string, source DataSource) (TickerDividendData, error)
-	ReadSplitData(symbol string, source DataSource) (TickerSplitData, error)
-	GetDateFormat() string
+	readTickerData(symbol string, tickerConfig *ReadConfig) (TickerData, error)
+	readEventData(event *Event) (EventData, error)
+	readDividendData(symbol string, source DataSource) (TickerDividendData, error)
+	readSplitData(symbol string, source DataSource) (TickerSplitData, error)
+	getDateFormat() string
 }
 
 type Data interface {
@@ -30,7 +30,7 @@ type Data interface {
 }
 
 type DataWriter interface {
-	WriteTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error
+	writeTickerData(symbol string, tickerData *TickerData, tickerConfig *WriteConfig) error
 }
 
 type Event struct {
@@ -94,7 +94,7 @@ func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]Ti
 	data := make(map[string]TickerData)
 	var err error
 	for _, config := range ticker.Config {
-		data[config.TimeFrame], err = dataReader.ReadTickerData(ticker.Symbol, &config)
+		data[config.TimeFrame], err = dataReader.readTickerData(ticker.Symbol, &config)
 		if err != nil {
 			break
 		}
@@ -103,12 +103,12 @@ func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]Ti
 }
 
 func ReadEventData(dataReader DataReader, event *Event) (EventData, error) {
-	eventData, err := dataReader.ReadEventData(event)
+	eventData, err := dataReader.readEventData(event)
 	return eventData, err
 }
 
 func ReadSplitData(dataReader DataReader, symbol string, source DataSource) (TickerSplitData, error) {
-	tsd, err := dataReader.ReadSplitData(symbol, source)
+	tsd, err := dataReader.readSplitData(symbol, source)
 	if dataInDescOrder(tsd.Date) {
 		tsd = sortSplitDataInAscOrder(&tsd, createSplitDataHeaderMap())
 	}
@@ -116,7 +116,7 @@ func ReadSplitData(dataReader DataReader, symbol string, source DataSource) (Tic
 }
 
 func ReadDividendData(dataReader DataReader, symbol string, source DataSource) (TickerDividendData, error) {
-	tdd, err := dataReader.ReadDividendData(symbol, source)
+	tdd, err := dataReader.readDividendData(symbol, source)
 	if dataInDescOrder(tdd.Date) {
 		tdd = sortDividendDataInAscOrder(&tdd, createDividendDataHeaderMap())
 	}
@@ -133,7 +133,7 @@ func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *Ti
 			higherTfTd, _ := createFromLowerTimeFrame(inTickerData, config.TimeFrame)
 			tdToWrite = &higherTfTd
 		}
-		err = dataWriter.WriteTickerData(ticker.Symbol, tdToWrite, &config)
+		err = dataWriter.writeTickerData(ticker.Symbol, tdToWrite, &config)
 		if err != nil {
 			break
 		}
@@ -158,24 +158,10 @@ func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerDat
 	for x := 0; x < size; x++ {
 		i := getIndexOfDateValue(td.Date, tsd.Date[x])
 		if i > -1 {
-			td.adjustTickerDataForSplitEvent(i - 1, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
+			td.adjustTickerDataForSplitEvent(i-1, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
 		}
 	}
 	return td
-}
-
-func createSplitDataHeaderMap() map[string]int {
-	header := make(map[string]int)
-	header["date"] = 0
-	header["split"] = 1
-	return header
-}
-
-func createDividendDataHeaderMap() map[string]int {
-	header := make(map[string]int)
-	header["date"] = 0
-	header["amount"] = 1
-	return header
 }
 
 func (td *TickerData) initialize(header map[string]int, size int) {
@@ -201,64 +187,6 @@ func (td *TickerData) initialize(header map[string]int, size int) {
 			td.HigherTfIds[key] = make([]int32, size)
 		}
 	}
-}
-
-func (tdd *TickerDividendData) initialize(size int) {
-	tdd.Date = make([]time.Time, size)
-	tdd.Amount = make([]float64, size)
-}
-
-func (tsd *TickerSplitData) initialize(size int) {
-	tsd.Date = make([]time.Time, size)
-	tsd.BeforeSplitQty = make([]int, size)
-	tsd.AfterSplitQty = make([]int, size)
-}
-
-func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
-	linkedHtfs := getLinkedHigherTimeFrames(targetTimeFrame)
-	field := make(map[string]int)
-	i := 0
-	if td.Id != nil {
-		field["id"] = i
-		i++
-	}
-	if td.Date != nil {
-		field["date"] = i
-		i++
-	}
-	if td.Open != nil {
-		field["open"] = i
-		i++
-	}
-	if td.High != nil {
-		field["high"] = i
-		i++
-	}
-	if td.Low != nil {
-		field["low"] = i
-		i++
-	}
-	if td.Close != nil {
-		field["close"] = i
-		i++
-	}
-	if td.Volume != nil {
-		field["volume"] = i
-		i++
-	}
-	if td.HigherTfIds != nil {
-		for key := range td.HigherTfIds {
-			if targetTimeFrame == "" || subStringInArray(key, linkedHtfs) {
-				field[key] = i
-				i++
-			}
-		}
-	}
-	for _, f := range additionalFields {
-		field[f] = i
-		i++
-	}
-	return field
 }
 
 func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
@@ -309,108 +237,163 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 	return err
 }
 
-func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
-	var err error
-	for key, value := range fieldIndex {
-		if key == "date" {
-			tdd.Date[index], _ = time.Parse(dateFormat, strings.TrimSpace(data[value]))
-		} else if key == "dividend" {
-			tdd.Amount[index], err = strconv.ParseFloat(strings.TrimSpace(data[value]), 64)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return err
-}
-
-func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
-	var err error
-	var int64val int64
-	for key, value := range fieldIndex {
-		if key == "date" {
-			tsd.Date[index], _ = time.Parse(dateFormat, strings.TrimSpace(data[value]))
-		} else if key == "split" {
-			splitData := strings.Split(data[value], ":")
-			int64val, err = strconv.ParseInt(splitData[1], 10, 16)
-			if err != nil {
-				return err
-			}
-			tsd.BeforeSplitQty[index] = int(int64val)
-			int64val, err = strconv.ParseInt(splitData[0], 10, 16)
-			if err != nil {
-				return err
-			}
-			tsd.AfterSplitQty[index] = int(int64val)
-		}
-	}
-	return err
-}
-
-func sortSplitDataInAscOrder(tsd *TickerSplitData, fields map[string]int) TickerSplitData {
-	var tsdSorted TickerSplitData
-	tsdSorted.initialize(len(tsd.Date))
-	l := len(tsd.Date)
-	var i int
-	id := -1
-	for i = l - 1; i > -1; i-- {
-		id++
-		tsdSorted.addItem(tsd, id, i, id)
-	}
-	return tsdSorted
-}
-
-func sortDividendDataInAscOrder(tdd *TickerDividendData, fields map[string]int) TickerDividendData {
-	var tddSorted TickerDividendData
-	tddSorted.initialize(len(tdd.Date))
-	l := len(tdd.Date)
-	var i int
-	id := -1
-	for i = l - 1; i > -1; i-- {
-		id++
-		tddSorted.addItem(tdd, id, i, id)
-	}
-	return tddSorted
-}
-
-func getIndexOfDateValue(dates []time.Time, date time.Time) int32 {
-	for i := range dates {
-		if dates[i] == date {
-			return int32(i)
-		}
-	}
-	return -1
-}
-
 func (td *TickerData) adjustTickerDataForSplitEvent(index int32, beforeSplityQty int, afterSplitQty int) {
 	priceRatio := float64(beforeSplityQty) / float64(afterSplitQty)
 	volumeRatio := float32(afterSplitQty) / float32(beforeSplityQty)
 	dp := numDecimalPlaces(td.Open[index])
 	for x := index; x > -1; x-- {
 		td.Open[x] = td.Open[x] * priceRatio
-		td.High[x] = RoundPlus((td.High[x] * priceRatio), dp)
-		td.Low[x] = RoundPlus((td.Low[x] * priceRatio), dp)
-		td.Close[x] = RoundPlus((td.Close[x] * priceRatio), dp)
+		td.High[x] = roundPlus((td.High[x] * priceRatio), dp)
+		td.Low[x] = roundPlus((td.Low[x] * priceRatio), dp)
+		td.Close[x] = roundPlus((td.Close[x] * priceRatio), dp)
 		td.Volume[x] = int64(float32(td.Volume[x]) * volumeRatio)
 	}
 }
 
-func numDecimalPlaces(v float64) int {
-    s := strconv.FormatFloat(v, 'f', -1, 64)
-    i := strings.IndexByte(s, '.')
-    if i > -1 {
-        return len(s) - i - 1
-    }
-    return 0
+func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) {
+	if td.Id != nil {
+		td.Id[index] = int32(id)
+	}
+	if td.Date != nil {
+		td.Date[index] = inTd.Date[inIndex]
+	}
+	if td.Open != nil {
+		td.Open[index] = inTd.Open[inIndex]
+	}
+	if td.High != nil {
+		td.High[index] = inTd.High[inIndex]
+	}
+	if td.Low != nil {
+		td.Low[index] = inTd.Low[inIndex]
+	}
+	if td.Close != nil {
+		td.Close[index] = inTd.Close[inIndex]
+	}
+	if td.Volume != nil {
+		td.Volume[index] = inTd.Volume[inIndex]
+	}
 }
 
-func RoundPlus(f float64, places int) (float64) {
-    shift := math.Pow(10, float64(places))
-    return Round(f * shift) / shift;    
+func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date time.Time, open float64, high float64, low float64, close float64, volume int64) {
+	td.Id[index] = inTd.HigherTfIds[requestedTfField][inIndex] + 1
+	td.Date[index] = date
+	td.Open[index] = open
+	td.High[index] = high
+	td.Low[index] = low
+	td.Close[index] = close
+	td.Volume[index] = volume
+	for key := range td.HigherTfIds {
+		td.HigherTfIds[key][index] = inTd.HigherTfIds[key][inIndex]
+	}
 }
 
-func Round(f float64) float64 {
-    return math.Floor(f + .5)
+func (td *TickerData) addHigherTimeFrameIds(tdTf string, higherTf string) {
+	if tdTf == "daily" {
+		if higherTf == "weekly" {
+			td.addWeeklyIdToDailyData()
+		} else if higherTf == "monthly" {
+			td.addMonthlyIdToDailyData()
+		}
+	}
+}
+
+func (td *TickerData) addWeeklyIdToDailyData() {
+	_, ok := td.HigherTfIds["weekly_id"]
+	if !ok {
+		return
+	}
+	l := len(td.Date)
+	z := getIndexOfStartOfSecondWeek(td.Date)
+	if z == -1 {
+		return
+	}
+	var i int
+	for i = z - 1; i > -1; i-- {
+		td.HigherTfIds["weekly_id"][i] = -1
+	}
+	weeklyId := int32(0)
+	td.HigherTfIds["weekly_id"][z] = weeklyId
+	for i = z + 1; i < l; i++ {
+		curDate := td.Date[i]
+		prevDate := td.Date[i-1]
+		if prevDate.Weekday() > curDate.Weekday() {
+			weeklyId++
+		}
+		td.HigherTfIds["weekly_id"][i] = weeklyId
+	}
+}
+
+func (td *TickerData) addMonthlyIdToDailyData() {
+	_, ok := td.HigherTfIds["monthly_id"]
+	if !ok {
+		return
+	}
+	l := len(td.Date)
+	z := getIndexOfStartOfSecondMonth(td.Date)
+	if z == -1 {
+		return
+	}
+	var i int
+	for i = z - 1; i > -1; i-- {
+		td.HigherTfIds["monthly_id"][i] = -1
+	}
+	monthlyId := int32(0)
+	td.HigherTfIds["monthly_id"][z] = monthlyId
+	for i = z + 1; i < l; i++ {
+		curDate := td.Date[i]
+		prevDate := td.Date[i-1]
+		if curDate.Month() != prevDate.Month() {
+			monthlyId++
+		}
+		td.HigherTfIds["monthly_id"][i] = monthlyId
+	}
+}
+
+func getFields(td *TickerData, additionalFields []string, targetTimeFrame string) map[string]int {
+	linkedHtfs := getLinkedHigherTimeFrames(targetTimeFrame)
+	field := make(map[string]int)
+	i := 0
+	if td.Id != nil {
+		field["id"] = i
+		i++
+	}
+	if td.Date != nil {
+		field["date"] = i
+		i++
+	}
+	if td.Open != nil {
+		field["open"] = i
+		i++
+	}
+	if td.High != nil {
+		field["high"] = i
+		i++
+	}
+	if td.Low != nil {
+		field["low"] = i
+		i++
+	}
+	if td.Close != nil {
+		field["close"] = i
+		i++
+	}
+	if td.Volume != nil {
+		field["volume"] = i
+		i++
+	}
+	if td.HigherTfIds != nil {
+		for key := range td.HigherTfIds {
+			if targetTimeFrame == "" || subStringInArray(key, linkedHtfs) {
+				field[key] = i
+				i++
+			}
+		}
+	}
+	for _, f := range additionalFields {
+		field[f] = i
+		i++
+	}
+	return field
 }
 
 func createFromLowerTimeFrame(inTd *TickerData, requestedTimeFrame string) (TickerData, error) {
@@ -537,37 +520,6 @@ func createTickerDataFromDescOrder(inTd *TickerData, fields map[string]int) Tick
 	return td
 }
 
-func dataInDescOrder(date []time.Time) bool {
-	if len(date) <= 1 {
-		return true
-	}
-	return date[0].After(date[1])
-}
-
-func (td *TickerData) addItem(inTd *TickerData, id int, inIndex int, index int) {
-	if td.Id != nil {
-		td.Id[index] = int32(id)
-	}
-	if td.Date != nil {
-		td.Date[index] = inTd.Date[inIndex]
-	}
-	if td.Open != nil {
-		td.Open[index] = inTd.Open[inIndex]
-	}
-	if td.High != nil {
-		td.High[index] = inTd.High[inIndex]
-	}
-	if td.Low != nil {
-		td.Low[index] = inTd.Low[inIndex]
-	}
-	if td.Close != nil {
-		td.Close[index] = inTd.Close[inIndex]
-	}
-	if td.Volume != nil {
-		td.Volume[index] = inTd.Volume[inIndex]
-	}
-}
-
 func (tsd *TickerSplitData) addItem(inTsd *TickerSplitData, id int, inIndex int, index int) {
 	if tsd.Date != nil {
 		tsd.Date[index] = inTsd.Date[inIndex]
@@ -580,6 +532,33 @@ func (tsd *TickerSplitData) addItem(inTsd *TickerSplitData, id int, inIndex int,
 	}
 }
 
+func (tdd *TickerDividendData) initialize(size int) {
+	tdd.Date = make([]time.Time, size)
+	tdd.Amount = make([]float64, size)
+}
+
+func (tdd *TickerDividendData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
+	var err error
+	for key, value := range fieldIndex {
+		if key == "date" {
+			tdd.Date[index], _ = time.Parse(dateFormat, strings.TrimSpace(data[value]))
+		} else if key == "dividend" {
+			tdd.Amount[index], err = strconv.ParseFloat(strings.TrimSpace(data[value]), 64)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return err
+}
+
+func createSplitDataHeaderMap() map[string]int {
+	header := make(map[string]int)
+	header["date"] = 0
+	header["split"] = 1
+	return header
+}
+
 func (tdd *TickerDividendData) addItem(inTdd *TickerDividendData, id int, inIndex int, index int) {
 	if tdd.Date != nil {
 		tdd.Date[index] = inTdd.Date[inIndex]
@@ -589,79 +568,100 @@ func (tdd *TickerDividendData) addItem(inTdd *TickerDividendData, id int, inInde
 	}
 }
 
-func (td *TickerData) addItemFromLowerTimeFrame(inTd *TickerData, requestedTfField string, inIndex int32, index int32, date time.Time, open float64, high float64, low float64, close float64, volume int64) {
-	td.Id[index] = inTd.HigherTfIds[requestedTfField][inIndex] + 1
-	td.Date[index] = date
-	td.Open[index] = open
-	td.High[index] = high
-	td.Low[index] = low
-	td.Close[index] = close
-	td.Volume[index] = volume
-	for key := range td.HigherTfIds {
-		td.HigherTfIds[key][index] = inTd.HigherTfIds[key][inIndex]
-	}
+func createDividendDataHeaderMap() map[string]int {
+	header := make(map[string]int)
+	header["date"] = 0
+	header["amount"] = 1
+	return header
 }
 
-func (td *TickerData) addHigherTimeFrameIds(tdTf string, higherTf string) {
-	if tdTf == "daily" {
-		if higherTf == "weekly" {
-			td.addWeeklyIdToDailyData()
-		} else if higherTf == "monthly" {
-			td.addMonthlyIdToDailyData()
-		}
-	}
-}
-
-func (td *TickerData) addWeeklyIdToDailyData() {
-	_, ok := td.HigherTfIds["weekly_id"]
-	if !ok {
-		return
-	}
-	l := len(td.Date)
-	z := getIndexOfStartOfSecondWeek(td.Date)
-	if z == -1 {
-		return
-	}
+func sortDividendDataInAscOrder(tdd *TickerDividendData, fields map[string]int) TickerDividendData {
+	var tddSorted TickerDividendData
+	tddSorted.initialize(len(tdd.Date))
+	l := len(tdd.Date)
 	var i int
-	for i = z - 1; i > -1; i-- {
-		td.HigherTfIds["weekly_id"][i] = -1
+	id := -1
+	for i = l - 1; i > -1; i-- {
+		id++
+		tddSorted.addItem(tdd, id, i, id)
 	}
-	weeklyId := int32(0)
-	td.HigherTfIds["weekly_id"][z] = weeklyId
-	for i = z + 1; i < l; i++ {
-		curDate := td.Date[i]
-		prevDate := td.Date[i-1]
-		if prevDate.Weekday() > curDate.Weekday() {
-			weeklyId++
-		}
-		td.HigherTfIds["weekly_id"][i] = weeklyId
-	}
+	return tddSorted
 }
 
-func (td *TickerData) addMonthlyIdToDailyData() {
-	_, ok := td.HigherTfIds["monthly_id"]
-	if !ok {
-		return
-	}
-	l := len(td.Date)
-	z := getIndexOfStartOfSecondMonth(td.Date)
-	if z == -1 {
-		return
-	}
-	var i int
-	for i = z - 1; i > -1; i-- {
-		td.HigherTfIds["monthly_id"][i] = -1
-	}
-	monthlyId := int32(0)
-	td.HigherTfIds["monthly_id"][z] = monthlyId
-	for i = z + 1; i < l; i++ {
-		curDate := td.Date[i]
-		prevDate := td.Date[i-1]
-		if curDate.Month() != prevDate.Month() {
-			monthlyId++
+func (tsd *TickerSplitData) initialize(size int) {
+	tsd.Date = make([]time.Time, size)
+	tsd.BeforeSplitQty = make([]int, size)
+	tsd.AfterSplitQty = make([]int, size)
+}
+
+func (tsd *TickerSplitData) addFromRecords(data []string, fieldIndex map[string]int, index int, dateFormat string) error {
+	var err error
+	var int64val int64
+	for key, value := range fieldIndex {
+		if key == "date" {
+			tsd.Date[index], _ = time.Parse(dateFormat, strings.TrimSpace(data[value]))
+		} else if key == "split" {
+			splitData := strings.Split(data[value], ":")
+			int64val, err = strconv.ParseInt(splitData[1], 10, 16)
+			if err != nil {
+				return err
+			}
+			tsd.BeforeSplitQty[index] = int(int64val)
+			int64val, err = strconv.ParseInt(splitData[0], 10, 16)
+			if err != nil {
+				return err
+			}
+			tsd.AfterSplitQty[index] = int(int64val)
 		}
-		td.HigherTfIds["monthly_id"][i] = monthlyId
 	}
+	return err
+}
+
+func sortSplitDataInAscOrder(tsd *TickerSplitData, fields map[string]int) TickerSplitData {
+	var tsdSorted TickerSplitData
+	tsdSorted.initialize(len(tsd.Date))
+	l := len(tsd.Date)
+	var i int
+	id := -1
+	for i = l - 1; i > -1; i-- {
+		id++
+		tsdSorted.addItem(tsd, id, i, id)
+	}
+	return tsdSorted
+}
+
+func getIndexOfDateValue(dates []time.Time, date time.Time) int32 {
+	for i := range dates {
+		if dates[i] == date {
+			return int32(i)
+		}
+	}
+	return -1
+}
+
+func numDecimalPlaces(v float64) int {
+	s := strconv.FormatFloat(v, 'f', -1, 64)
+	i := strings.IndexByte(s, '.')
+	if i > -1 {
+		return len(s) - i - 1
+	}
+	return 0
+}
+
+func roundPlus(f float64, places int) float64 {
+	shift := math.Pow(10, float64(places))
+	return round(f*shift) / shift
+}
+
+func round(f float64) float64 {
+	return math.Floor(f + .5)
+}
+
+func dataInDescOrder(date []time.Time) bool {
+	if len(date) <= 1 {
+		return true
+	}
+	return date[0].After(date[1])
 }
 
 func getLinkedHigherTimeFrames(targetTimeFrame string) []string {
@@ -721,17 +721,4 @@ func subStringInArray(value string, array []string) bool {
 		}
 	}
 	return false
-}
-
-func getDefaultHeader() map[string]int {
-	header := make(map[string]int)
-	header["id"] = 0
-	header["date"] = 1
-	header["open"] = 2
-	header["high"] = 3
-	header["low"] = 4
-	header["close"] = 5
-	header["volume"] = 6
-
-	return header
 }
