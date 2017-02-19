@@ -115,6 +115,14 @@ func ReadSplitData(dataReader DataReader, symbol string, source DataSource) (Tic
 	return tsd, err
 }
 
+func ReadDividendData(dataReader DataReader, symbol string, source DataSource) (TickerDividendData, error) {
+	tdd, err := dataReader.ReadDividendData(symbol, source)
+	if dataInDescOrder(tdd.Date) {
+		tdd = sortDividendDataInAscOrder(&tdd, createDividendDataHeaderMap())
+	}
+	return tdd, err
+}
+
 func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *TickerForWrite) error {
 	var err error
 	var tdToWrite *TickerData
@@ -160,6 +168,13 @@ func createSplitDataHeaderMap() map[string]int {
 	header := make(map[string]int)
 	header["date"] = 0
 	header["split"] = 1
+	return header
+}
+
+func createDividendDataHeaderMap() map[string]int {
+	header := make(map[string]int)
+	header["date"] = 0
+	header["amount"] = 1
 	return header
 }
 

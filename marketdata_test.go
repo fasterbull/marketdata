@@ -56,6 +56,24 @@ func TestReadSplitDataAndSort(t *testing.T) {
 	}
 }
 
+func TestReadDividendDataAndSort(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.TickerDataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.DividendFileNamePattern = "{ticker}-yahoosplitdividend.csv"
+	csvReader.DateFormat = "20060102"
+	symbol := "someticker"
+	result, err := ReadDividendData(csvReader, symbol, YAHOO)
+	var expectedValue TickerDividendData
+	dates := []string{"20011214", "20020308", "20050324", "20050620"}
+	expectedValue.Date = createDates(dates, csvReader.DateFormat)
+	expectedValue.Amount = []float64{0.135000, 0.057500, 0.274000, 0.146000}
+	if !reflect.DeepEqual(result, expectedValue) || err != nil {
+		t.Log("Failed ReadDividendData. Result was: ", result, " but should be: ", expectedValue)
+		t.Log("Returned error is:", err)
+		t.Fail()
+	}
+}
+
 func TestProcessRawTickerData(t *testing.T) {
 	testCases := []struct {
 		name           string
