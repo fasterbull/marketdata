@@ -24,11 +24,15 @@ func (csvWriter CsvWriter) writeTickerData(symbol string, tickerData *TickerData
 	var fwr, fr *os.File
 	var err error
 	var nextId int
+	fileOpenError := false
+	newFile := false
 	if tickerConfig.Append {
 		fr, err = os.Open(filePath + fileName)
 		if err != nil {
-			return errors.New("File Write Error: " + err.Error())
+			fileOpenError = true
 		}
+	}
+	if tickerConfig.Append && !fileOpenError {
 		nextId, err = getNextId(fr)
 		fr.Close()
 		fwr, err = os.OpenFile(filePath+fileName, os.O_APPEND|os.O_WRONLY, 0600)
@@ -36,6 +40,7 @@ func (csvWriter CsvWriter) writeTickerData(symbol string, tickerData *TickerData
 			return errors.New("File Write Error: " + err.Error())
 		}
 	} else {
+		newFile = true
 		os.MkdirAll(filePath, os.ModePerm)
 		fwr, err = os.Create(filePath + fileName)
 		if err != nil {
@@ -46,7 +51,7 @@ func (csvWriter CsvWriter) writeTickerData(symbol string, tickerData *TickerData
 	defer fwr.Close()
 	writer := bufio.NewWriter(fwr)
 	sortedHigherTfIds := getSortedHigherTimeFrameIds(tickerData.HigherTfIds)
-	if !tickerConfig.Append {
+	if newFile {
 		printHeader(writer, tickerData, sortedHigherTfIds, newLine)
 	}
 	printTickerData(writer, tickerData, sortedHigherTfIds, nextId, newLine, csvWriter.DateFormat)

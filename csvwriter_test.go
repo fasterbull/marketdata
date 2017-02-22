@@ -7,26 +7,37 @@ import (
 )
 
 func Test_writeTickerData(t *testing.T) {
+	testCases := []struct {
+		name       string
+		append     bool
+		fileExists bool
+	}{
+		{"'WriteTickerData with WriteConfig.Append set to false and file DOES NOT exist'", false, false},
+		{"'WriteTickerData with WriteConfig.Append set to true and file DOES NOT exist'", true, false},
+		{"'WriteTickerData with WriteConfig.Append set to true and file DOES exist'", true, true},
+	}
 	outputPath := "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker" + string(os.PathSeparator) + "processed" + string(os.PathSeparator)
 	csvWriter := CsvWriter{outputPath, "{ticker}-{timeframe}.csv", "1/2/2006"}
 	symbol := "testticker"
 	baseTimeFrame := "daily"
-	tickerConfig := WriteConfig{"daily", false}
 	processedTd := getExpectedDailyDataWithWeeklyAndMonthlyIds()
 	var err error
 	var result []byte
 	resultingFile := outputPath + symbol + "-" + baseTimeFrame + ".csv"
-	err = csvWriter.writeTickerData(symbol, &processedTd, &tickerConfig)
-	result, err = ioutil.ReadFile(resultingFile)
-	if err != nil {
-		t.Log("Failed write TickerData. Error is: ", err)
+	for _, tc := range testCases {
+		tickerConfig := WriteConfig{"daily", tc.append}
+		err = csvWriter.writeTickerData(symbol, &processedTd, &tickerConfig)
+		result, err = ioutil.ReadFile(resultingFile)
+		if err != nil {
+			t.Log("Failed write TickerData. Error is: ", err)
+		}
+		expectedValue := getExpectedCsvDailyDataWithMonthlyWeeklyIds()
+		if string(result) != expectedValue {
+			t.Log("test_writeTickerData test case ", tc.name, " failed to write tickerData. Result was: ", string(result), " but should be: ", expectedValue)
+			t.Fail()
+		}
+		os.Remove(resultingFile)
 	}
-	expectedValue := getExpectedCsvDailyDataWithMonthlyWeeklyIds()
-	if string(result) != expectedValue {
-		t.Log("Failed writeTickerData. Result was: ", string(result), " but should be: ", expectedValue)
-		t.Fail()
-	}
-	os.Remove(resultingFile)
 }
 
 func getExpectedCsvDailyDataWithMonthlyWeeklyIds() string {
