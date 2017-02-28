@@ -142,7 +142,7 @@ func getSortedHigherTimeFrameIds(higherTfIds map[string][]int32) []string {
 
 func getNextId(r io.Reader) (int, error) {
 	id, err := lineCounter(r)
-	return id, err
+	return id - 1, err
 }
 
 func lineCounter(r io.Reader) (int, error) {
