@@ -282,6 +282,9 @@ func getTickerDataSlice(td *TickerData, dataSubtractAmount int) TickerData {
 	var tdSlice TickerData
 	l := len(td.Date)
 	sL := l - dataSubtractAmount
+	if td.Id != nil {
+		tdSlice.Id = td.Id[0:sL]
+	}
 	tdSlice.Date = td.Date[0:sL]
 	tdSlice.Open = td.Open[0:sL]
 	tdSlice.High = td.High[0:sL]
