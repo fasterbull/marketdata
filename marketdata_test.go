@@ -37,6 +37,37 @@ func TestWriteTickerData(t *testing.T) {
 	}
 }
 
+func TestReadTickerData(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
+	csvReader.FileNamePattern = "{ticker}-{timeframe}.csv"
+	csvReader.DateFormat = "20060102"
+	symbol := "someticker"
+	timeFrame := "daily"
+	var dateRange DateRange
+	var tickerForRead TickerForRead
+	tickerForRead.Symbol = symbol
+	tickerForRead.Config = []ReadConfig{{timeFrame, nil, dateRange}}
+	result, _ := ReadTickerData(csvReader, &tickerForRead)
+	var expectedValue TickerData
+	expectedValueMap := make(map[string]TickerData)
+	expectedValue.Id = []int32{0, 1, 2}
+	dates := []string{"12/7/2016", "12/8/2016", "12/9/2016"}
+	expectedValue.Date = createDates(dates, csvReader.DateFormat)
+	expectedValue.Open = []float64{134.58, 136.25, 138.39}
+	expectedValue.High = []float64{136.17, 138.21, 138.82}
+	expectedValue.Low = []float64{134.17, 135.80, 137.75}
+	expectedValue.Close = []float64{135.89, 138.03, 138.30}
+	expectedValue.Volume = []int64{30859300, 47794400, 34276600}
+	expectedValueMap[timeFrame] = expectedValue
+
+	if !reflect.DeepEqual(result, expectedValueMap) {
+		t.Log("Failed Read TickerData. Result was: ", result, " but should be: ", expectedValueMap)
+		t.Fail()
+	}
+
+}
+
 func TestReadSplitDataAndSort(t *testing.T) {
 	var csvReader CsvReader
 	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "ticker"
@@ -70,6 +101,29 @@ func TestReadDividendDataAndSort(t *testing.T) {
 	if !reflect.DeepEqual(result, expectedValue) || err != nil {
 		t.Log("Failed ReadDividendData. Result was: ", result, " but should be: ", expectedValue)
 		t.Log("Returned error is:", err)
+		t.Fail()
+	}
+}
+
+func TestReadEventData(t *testing.T) {
+	var csvReader CsvReader
+	csvReader.DataPath = "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "event"
+	csvReader.FileNamePattern = "{eventname}.csv"
+	csvReader.DateFormat = "1/2/2006"
+	var event Event
+	event.Name = "testevent"
+	result, _ := ReadEventData(csvReader, &event)
+	dates := []string{"5/26/2000", "7/11/2000", "9/6/2011"}
+	realDates := createDates(dates, csvReader.DateFormat)
+	expectedValue := map[time.Time]bool{
+		realDates[0]: true,
+		realDates[1]: true,
+		realDates[2]: true,
+	}
+	if (result.Date[realDates[0]] != expectedValue[realDates[0]]) ||
+		(result.Date[realDates[1]] != expectedValue[realDates[1]]) ||
+		(result.Date[realDates[2]] != expectedValue[realDates[2]]) {
+		t.Log("Failed Read EventData. Result was: ", result, " but should be: ", expectedValue)
 		t.Fail()
 	}
 }
