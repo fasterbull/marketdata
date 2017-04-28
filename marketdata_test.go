@@ -61,7 +61,7 @@ func TestReadTickerData(t *testing.T) {
 	expectedValue.Volume = []int64{30859300, 47794400, 34276600}
 	expectedValueMap[timeFrame] = expectedValue
 
-	if !reflect.DeepEqual(result, expectedValueMap) {
+	if !reflect.DeepEqual(*result[timeFrame], expectedValueMap[timeFrame]) {
 		t.Log("Failed Read TickerData. Result was: ", result, " but should be: ", expectedValueMap)
 		t.Fail()
 	}

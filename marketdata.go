@@ -90,14 +90,15 @@ type EventData struct {
 	Date map[time.Time]bool
 }
 
-func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]TickerData, error) {
-	data := make(map[string]TickerData)
+func ReadTickerData(dataReader DataReader, ticker *TickerForRead) (map[string]*TickerData, error) {
+	data := make(map[string]*TickerData)
 	var err error
 	for _, config := range ticker.Config {
-		data[config.TimeFrame], err = dataReader.readTickerData(ticker.Symbol, &config)
+		td, err := dataReader.readTickerData(ticker.Symbol, &config)
 		if err != nil {
 			break
 		}
+		data[config.TimeFrame] = &td
 	}
 	return data, err
 }
