@@ -2,7 +2,6 @@ package marketdata
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -145,7 +144,7 @@ func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *Ti
 func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string) TickerData {
 	td := createSortedTickerData(inTd, additionalFields)
 	if tsd.Date != nil {
-		fmt.Printf("Split data is nil")
+		td = AdjustTickerDataForSplits(inTd, tsd)
 	}
 	for _, higherTf := range higherTfs {
 		td.addHigherTimeFrameIds(baseTimeFrame, higherTf)
