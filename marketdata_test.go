@@ -163,8 +163,8 @@ func TestProcessRawTickerData(t *testing.T) {
 
 func TestAdjustTickerDataForSplits(t *testing.T) {
 	tsd := getTickerSplitData()
-	td, _ := getTestPreSplitAdjustedTickerData("desc", 0)
-	processedTd := AdjustTickerDataForSplits(&td, &tsd)
+	processedTd, _ := getTestPreSplitAdjustedTickerData("asc", 0)
+	processedTd.AdjustTickerDataForSplits(&tsd)
 	expectedResult := getTestSplitAdjustedTickerData()
 	if !reflect.DeepEqual(processedTd, expectedResult) {
 		t.Log("TestAdjustTickerDataForSplits failed to adjust ticker data for splits. Result was: ", processedTd, " but should be: ", expectedResult)

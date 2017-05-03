@@ -144,7 +144,7 @@ func WriteTickerData(dataWriter DataWriter, inTickerData *TickerData, ticker *Ti
 func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame string, additionalFields []string, higherTfs []string) TickerData {
 	td := createSortedTickerData(inTd, additionalFields)
 	if tsd.Date != nil {
-		td = AdjustTickerDataForSplits(inTd, tsd)
+		td.AdjustTickerDataForSplits(tsd)
 	}
 	for _, higherTf := range higherTfs {
 		td.addHigherTimeFrameIds(baseTimeFrame, higherTf)
@@ -152,8 +152,7 @@ func ProcessRawTickerData(inTd *TickerData, tsd *TickerSplitData, baseTimeFrame 
 	return td
 }
 
-func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerData {
-	td := createSortedTickerData(inTd, []string{})
+func (td *TickerData) AdjustTickerDataForSplits(tsd *TickerSplitData) {
 	size := len(tsd.Date)
 	for x := 0; x < size; x++ {
 		i := getIndexOfDateValue(td.Date, tsd.Date[x])
@@ -161,7 +160,6 @@ func AdjustTickerDataForSplits(inTd *TickerData, tsd *TickerSplitData) TickerDat
 			td.adjustTickerDataForSplitEvent(i-1, tsd.BeforeSplitQty[x], tsd.AfterSplitQty[x])
 		}
 	}
-	return td
 }
 
 func (td *TickerData) initialize(header map[string]int, size int) {
