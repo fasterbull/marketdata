@@ -238,7 +238,7 @@ func (td *TickerData) addFromRecords(data []string, fieldIndex map[string]int, i
 func (td *TickerData) adjustTickerDataForSplitEvent(index int32, beforeSplityQty int, afterSplitQty int) {
 	priceRatio := float64(beforeSplityQty) / float64(afterSplitQty)
 	volumeRatio := float32(afterSplitQty) / float32(beforeSplityQty)
-	dp := numDecimalPlaces(td.Open[index])
+	dp := 2
 	for x := index; x > -1; x-- {
 		td.Open[x] = td.Open[x] * priceRatio
 		td.High[x] = roundPlus((td.High[x] * priceRatio), dp)
