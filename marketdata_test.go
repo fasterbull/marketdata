@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -52,6 +53,9 @@ func TestReadTickerData(t *testing.T) {
 	var expectedValue TickerData
 	expectedValueMap := make(map[string]TickerData)
 	expectedValue.Id = []int32{0, 1, 2}
+	expectedValue.HigherTfIds = make(map[string][]int32)
+	expectedValue.HigherTfIds["weekly_id"] = []int32{-1, -1, -1}
+	expectedValue.HigherTfIds["monthly_id"] = []int32{-1, -1, -1}
 	dates := []string{"12/7/2016", "12/8/2016", "12/9/2016"}
 	expectedValue.Date = createDates(dates, csvReader.DateFormat)
 	expectedValue.Open = []float64{134.58, 136.25, 138.39}
@@ -61,6 +65,7 @@ func TestReadTickerData(t *testing.T) {
 	expectedValue.Volume = []int64{30859300, 47794400, 34276600}
 	expectedValueMap[timeFrame] = expectedValue
 
+	fmt.Printf("weeklyIds are %v", result[timeFrame].HigherTfIds["weekly_id"])
 	if !reflect.DeepEqual(*result[timeFrame], expectedValueMap[timeFrame]) {
 		t.Log("Failed Read TickerData. Result was: ", result, " but should be: ", expectedValueMap)
 		t.Fail()
